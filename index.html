@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<title>Fundraising CRM Cloud Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<style>
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f4f4;
+    padding: 20px;
+}
+
+h1 {
+    color: #222;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+
+th, td {
+    border: 1px solid #ccc;
+    padding: 10px;
+    text-align: left;
+}
+
+th {
+    background: #1f4e79;
+    color: white;
+}
+
+.hot {
+    background: #ffd6d6;
+}
+
+.warm {
+    background: #fff4cc;
+}
+
+.cold {
+    background: #ddeeff;
+}
+
+button {
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>Fundraising CRM Dashboard</h1>
+
+<table>
+
+<thead>
+<tr>
+<th>Business</th>
+<th>Phone</th>
+<th>Location</th>
+<th>Status</th>
+<th>Donation</th>
+<th>Notes</th>
+<th>Call</th>
+</tr>
+</thead>
+
+<tbody id="donorTable"></tbody>
+
+</table>
+
+<script>
+
+const SUPABASE_URL = "https://ldkxgkigfbviyxlspxrl.supabase.co";
+
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxka3hna2lnZmJ2aXl4bHNweHJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MDQzNTgsImV4cCI6MjA5NTA4MDM1OH0.QuFqGtAdT85dVyF7Xs1pobhGb2I7o9D9ORTGk0T070s";
+
+const client = supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+);
+
+async function loadDonors() {
+
+    const { data, error } = await client
+        .from('donors')
+        .select('*');
+
+    if (error) {
+        console.log(error);
+        return;
+    }
+
+    const donorTable = document.getElementById('donorTable');
+
+    donorTable.innerHTML = '';
+
+    data.forEach(donor => {
+
+        let statusClass = '';
+
+        if (donor.status) {
+            statusClass = donor.status.toLowerCase();
+        }
+
+        donorTable.innerHTML += `
+            <tr class="${statusClass}">
+                <td>${donor.business_name || ''}</td>
+                <td>${donor.mobile || ''}</td>
+                <td>${donor.location || ''}</td>
+                <td>${donor.status || ''}</td>
+                <td>$${donor.donation || 0}</td>
+                <td>${donor.notes || ''}</td>
+                <td>
+                    <button onclick="window.location.href='tel:${donor.mobile}'">
+                        Call
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+}
+
+loadDonors();
+
+</script>
+
+</body>
+</html>
