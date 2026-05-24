@@ -94,7 +94,7 @@ const client = supabase.createClient(
 async function loadDonors() {
 
     const { data, error } = await client
-        .from('donors')
+        .from('Donors')
         .select('*');
 
     if (error) {
