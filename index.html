@@ -78,7 +78,21 @@ button {
 </thead>
 
 <tbody id="donorTable"></tbody>
+<div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc;">
+    <h2>Add Donor</h2>
 
+    <input id="business_name" placeholder="Business Name"><br><br>
+
+    <input id="phone" placeholder="Phone"><br><br>
+
+    <input id="location" placeholder="Location"><br><br>
+
+    <input id="status" placeholder="Status"><br><br>
+
+    <textarea id="notes" placeholder="Notes"></textarea><br><br>
+
+    <button onclick="addDonor()">Add Donor</button>
+</div>
 </table>
 
 <script>
@@ -196,6 +210,41 @@ async function updateStatus(id, status) {
         alert('Failed to save callback date');
     } else {
         console.log('Callback date updated');
+    }
+}
+    async function addDonor() {
+
+    const business_name = document.getElementById('business_name').value;
+    const phone = document.getElementById('phone').value;
+    const location = document.getElementById('location').value;
+    const status = document.getElementById('status').value;
+    const notes = document.getElementById('notes').value;
+
+    const { error } = await client
+        .from('Donors')
+        .insert([
+            {
+                business_name,
+                mobile: phone,
+                location,
+                status,
+                notes
+            }
+        ]);
+
+    if (error) {
+        console.error('Add donor failed:', error);
+        alert('Failed to add donor');
+    } else {
+        alert('Donor added');
+
+        loadDonors();
+
+        document.getElementById('business_name').value = '';
+        document.getElementById('phone').value = '';
+        document.getElementById('location').value = '';
+        document.getElementById('status').value = '';
+        document.getElementById('notes').value = '';
     }
 }
 </script>
