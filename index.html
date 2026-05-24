@@ -119,7 +119,17 @@ async function loadDonors() {
                 <td>${donor.business_name || ''}</td>
                 <td>${donor.mobile || ''}</td>
                 <td>${donor.location || ''}</td>
-                <td>${donor.status || ''}</td>
+<td>
+<select>
+<option ${donor.status === 'Not Called' ? 'selected' : ''}>Not Called</option>
+<option ${donor.status === 'No Answer' ? 'selected' : ''}>No Answer</option>
+<option ${donor.status === 'Callback Requested' ? 'selected' : ''}>Callback Requested</option>
+<option ${donor.status === 'Follow Up' ? 'selected' : ''}>Follow Up</option>
+<option ${donor.status === 'Interested' ? 'selected' : ''}>Interested</option>
+<option ${donor.status === 'Closed Sale' ? 'selected' : ''}>Closed Sale</option>
+<option ${donor.status === 'Not Interested' ? 'selected' : ''}>Not Interested</option>
+</select>
+</td>
                 <td>$${donor.donation || 0}</td>
                 <td>${donor.notes || ''}</td>
                 <td>
