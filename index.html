@@ -145,7 +145,19 @@ async function loadDonors() {
 
 loadDonors();
 
-</script>
+async function updateStatus(id, status) {
+    const { error } = await client
+        .from('Donors')
+        .update({ status: status })
+        .eq('id', id);
+
+    if (error) {
+        console.error('Status update failed:', error);
+        alert('Failed to save status');
+    } else {
+        console.log('Status updated');
+    }
+}
 
 </body>
 </html>
