@@ -120,7 +120,7 @@ async function loadDonors() {
                 <td>${donor.mobile || ''}</td>
                 <td>${donor.location || ''}</td>
 <td>
-<select>
+<select onchange="updateStatus(${donor.id}, this.value)">
 <option ${donor.status === 'Not Called' ? 'selected' : ''}>Not Called</option>
 <option ${donor.status === 'No Answer' ? 'selected' : ''}>No Answer</option>
 <option ${donor.status === 'Callback Requested' ? 'selected' : ''}>Callback Requested</option>
