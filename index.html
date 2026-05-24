@@ -72,6 +72,7 @@ button {
 <th>Status</th>
 <th>Donation</th>
 <th>Notes</th>
+<th>Callback Date</th>
 <th>Call</th>
 </tr>
 </thead>
@@ -138,6 +139,13 @@ rows="3"
 style="width: 100%;"
 >${donor.notes || ''}</textarea>
 </td>
+<td>
+<input
+type="date"
+value="${donor.callback_date || ''}"
+onchange="updateCallbackDate(${donor.id}, this.value)"
+>
+</td>
                 <td>
                     <button onclick="window.location.href='tel:${donor.mobile}'">
                         Call
@@ -175,6 +183,19 @@ async function updateStatus(id, status) {
         alert('Failed to save notes');
     } else {
         console.log('Notes updated');
+    }
+}
+    async function updateCallbackDate(id, callback_date) {
+    const { error } = await client
+        .from('Donors')
+        .update({ callback_date: callback_date })
+        .eq('id', id);
+
+    if (error) {
+        console.error('Callback date update failed:', error);
+        alert('Failed to save callback date');
+    } else {
+        console.log('Callback date updated');
     }
 }
 </script>
