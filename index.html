@@ -131,7 +131,13 @@ async function loadDonors() {
 </select>
 </td>
                 <td>$${donor.donation || 0}</td>
-                <td>${donor.notes || ''}</td>
+              <td>
+<textarea
+onchange="updateNotes(${donor.id}, this.value)"
+rows="3"
+style="width: 100%;"
+>${donor.notes || ''}</textarea>
+</td>
                 <td>
                     <button onclick="window.location.href='tel:${donor.mobile}'">
                         Call
@@ -156,6 +162,19 @@ async function updateStatus(id, status) {
         alert('Failed to save status');
     } else {
         console.log('Status updated');
+    }
+}
+    async function updateNotes(id, notes) {
+    const { error } = await client
+        .from('Donors')
+        .update({ notes: notes })
+        .eq('id', id);
+
+    if (error) {
+        console.error('Notes update failed:', error);
+        alert('Failed to save notes');
+    } else {
+        console.log('Notes updated');
     }
 }
 </script>
