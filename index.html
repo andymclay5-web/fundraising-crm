@@ -72,6 +72,7 @@ button {
 
 <thead>
 <tr>
+<th>ID</th>
 <th>Business</th>
 <th>Contact</th>
 <th>Mobile</th>
@@ -90,6 +91,7 @@ button {
 <tbody id="donorTable"></tbody>
 <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc;">
     <h2>Add Donor</h2>
+    <input id="card_id" placeholder="Card / PCL ID"><br><br>
 
     <input id="business_name" placeholder="Business Name"><br><br>
     <input id="contact_name" placeholder="Contact Name"><br><br>
@@ -180,7 +182,8 @@ async function loadDonors() {
 
         donorTable.innerHTML += `
             <tr class="${statusClass}">
-                <td>${donor.business_name || ''}</td>
+               <td>${donor.card_id || ''}</td>
+<td>${donor.business_name || ''}</td>
                 <td>${donor.contact_name || ''}</td>
 
                 <td>
@@ -320,7 +323,7 @@ async function updatePhoneNotes(id, phone_notes) {
 }
 async function addDonor() {
 
-    const business_name = document.getElementById('business_name').value;
+    const card_id = document.getElementById('card_id').value;
     const contact_name = document.getElementById('contact_name').value;
     const phone = document.getElementById('phone').value;
     const location = document.getElementById('location').value;
@@ -330,7 +333,8 @@ async function addDonor() {
     const { error } = await client
         .from('donors')
         .insert([
-           {
+          {
+    card_id,
     business_name,
     contact_name,
     mobile: phone,
@@ -347,7 +351,7 @@ async function addDonor() {
         alert('Donor added');
 
         loadDonors();
-
+document.getElementById('card_id').value = '';
         document.getElementById('business_name').value = '';
         document.getElementById('contact_name').value = '';
         document.getElementById('phone').value = '';
