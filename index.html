@@ -140,10 +140,17 @@ async function loadDonors() {
 <td>${donor.contact_name || ''}</td>
 
 <td>
+${donor.mobile || ''}
+<br>
+<button onclick="window.location.href='tel:${donor.mobile}'">Call Mobile</button>
+</td>
+
+<td>
 ${donor.office_phone || ''}
 <br>
 <button onclick="window.location.href='tel:${donor.office_phone}'">Call Main</button>
 </td>
+
 <td>
 <textarea
 onchange="updatePhoneNotes(${donor.id}, this.value)"
@@ -190,7 +197,7 @@ onchange="updateCallbackDate(${donor.id}, this.value)"
 >
 </td>
                 <td>
-                    <button onclick="window.location.href='tel:${donor.mobile}'">
+                    
                         Call
                     </button>
                 </td>
