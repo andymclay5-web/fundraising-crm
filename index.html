@@ -79,7 +79,7 @@ button {
 <th>Mobile</th>
 <th>Main Number</th>
 <th>Email</th>
-<th>Phone Notes</th>
+
 <th>Location</th>
 <th>Status</th>
 <th>Suggested Ask</th>
@@ -212,13 +212,7 @@ style="width: 180px;"
 >
 </td>
 
-<td>
-<textarea
-onchange="updatePhoneNotes(${donor.id}, this.value)"
-rows="2"
-style="width: 100%;"
->${donor.phone_notes || ''}</textarea>
-</td>
+
 
 <td>${donor.location || ''}</td>
 
