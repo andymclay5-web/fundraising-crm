@@ -61,7 +61,13 @@ button {
 <body>
 
 <h1>Fundraising CRM Dashboard live</h1>
-
+<div style="margin-bottom: 15px;">
+    <button onclick="setFilter('callQueue')">Call Queue</button>
+    <button onclick="setFilter('callbacks')">Callbacks</button>
+    <button onclick="setFilter('email')">Email Follow Up</button>
+    <button onclick="setFilter('noAnswer')">No Answer</button>
+    <button onclick="setFilter('all')">All Contacts</button>
+</div>
 <table>
 
 <thead>
@@ -110,12 +116,39 @@ const client = supabase.createClient(
     SUPABASE_URL,
     SUPABASE_KEY
 );
+    let currentFilter = 'callQueue';
+
+function setFilter(filterName) {
+    currentFilter = filterName;
+    loadDonors();
+}
 
 async function loadDonors() {
 
     const { data, error } = await client
+    let query = client
     .from('donors')
-    .select('*')
+    .select('*');
+
+if (currentFilter === 'callQueue') {
+    query = query.or('status.is.null,status.eq.Not Called');
+}
+
+if (currentFilter === 'callbacks') {
+    query = query.eq('status', 'Callback Requested');
+}
+
+if (currentFilter === 'email') {
+    query = query.eq('status', 'Email Sent');
+}
+
+if (currentFilter === 'noAnswer') {
+    query = query.eq('status', 'No Answer');
+}
+
+query = query.order('suggested_ask', { ascending: false });
+
+const { data, error } = await query;
     .or('status.is.null,status.eq.Not Called')
     .order('suggested_ask', { ascending: false });
 
