@@ -114,8 +114,10 @@ const client = supabase.createClient(
 async function loadDonors() {
 
     const { data, error } = await client
-        .from('donors')
-        .select('*');
+    .from('donors')
+    .select('*')
+    .or('status.is.null,status.eq.Not Called')
+    .order('suggested_ask', { ascending: false });
 
     if (error) {
         console.log(error);
