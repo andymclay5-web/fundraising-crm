@@ -67,6 +67,7 @@ button {
 <thead>
 <tr>
 <th>Business</th>
+<th>Contact</th>
 <th>Phone</th>
 <th>Phone Notes</th>
 <th>Location</th>
@@ -84,6 +85,7 @@ button {
     <h2>Add Donor</h2>
 
     <input id="business_name" placeholder="Business Name"><br><br>
+    <input id="contact_name" placeholder="Contact Name"><br><br>
 
     <input id="phone" placeholder="Phone"><br><br>
 
@@ -133,8 +135,9 @@ async function loadDonors() {
 
         donorTable.innerHTML += `
             <tr class="${statusClass}">
-                <td>${donor.business_name || ''}</td>
-                <td>${donor.mobile || ''}</td>
+              <td>${donor.business_name || ''}</td>
+<td>${donor.contact_name || ''}</td>
+<td>${donor.mobile || ''}</td>
 <td>
 <textarea
 onchange="updatePhoneNotes(${donor.id}, this.value)"
@@ -264,6 +267,7 @@ async function updatePhoneNotes(id, phone_notes) {
 async function addDonor() {
 
     const business_name = document.getElementById('business_name').value;
+    const contact_name = document.getElementById('contact_name').value;
     const phone = document.getElementById('phone').value;
     const location = document.getElementById('location').value;
     const status = document.getElementById('status').value;
@@ -272,13 +276,14 @@ async function addDonor() {
     const { error } = await client
         .from('donors')
         .insert([
-            {
-                business_name,
-                mobile: phone,
-                location,
-                status,
-                notes
-            }
+           {
+    business_name,
+    contact_name,
+    mobile: phone,
+    location,
+    status,
+    notes
+}
         ]);
 
     if (error) {
@@ -290,6 +295,7 @@ async function addDonor() {
         loadDonors();
 
         document.getElementById('business_name').value = '';
+        document.getElementById('contact_name').value = '';
         document.getElementById('phone').value = '';
         document.getElementById('location').value = '';
         document.getElementById('status').value = '';
