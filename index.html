@@ -126,29 +126,45 @@ function setFilter(filterName) {
 async function loadDonors() {
 
     const { data, error } = await client
-    let query = client
+   const { data, error } = await client
     .from('donors')
-    .select('*');
+    .select('*')
+    .order('suggested_ask', { ascending: false });
+
+if (error) {
+    console.log(error);
+    return;
+}
+
+let filteredData = data;
 
 if (currentFilter === 'callQueue') {
-    query = query.or('status.is.null,status.eq.Not Called');
+    filteredData = data.filter(donor =>
+        !donor.status || donor.status === 'Not Called'
+    );
 }
 
 if (currentFilter === 'callbacks') {
-    query = query.eq('status', 'Callback Requested');
+    filteredData = data.filter(donor =>
+        donor.status === 'Callback Requested'
+    );
 }
 
 if (currentFilter === 'email') {
-    query = query.eq('status', 'Email Sent');
+    filteredData = data.filter(donor =>
+        donor.status === 'Email Sent'
+    );
 }
 
 if (currentFilter === 'noAnswer') {
-    query = query.eq('status', 'No Answer');
+    filteredData = data.filter(donor =>
+        donor.status === 'No Answer'
+    );
 }
 
-query = query.order('suggested_ask', { ascending: false });
-
-const { data, error } = await query;
+if (currentFilter === 'all') {
+    filteredData = data;
+}
     .or('status.is.null,status.eq.Not Called')
     .order('suggested_ask', { ascending: false });
 
