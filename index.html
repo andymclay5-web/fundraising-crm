@@ -66,6 +66,7 @@ button {
     <button onclick="setFilter('callbacks')">Callbacks</button>
     <button onclick="setFilter('email')">Email Follow Up</button>
     <button onclick="setFilter('noAnswer')">No Answer</button>
+    <button onclick="setFilter('closedSales')">Closed Sales</button>
     <button onclick="setFilter('all')">All Contacts</button>
 </div>
 <table>
@@ -163,7 +164,11 @@ async function loadDonors() {
             donor.status === 'No Answer'
         );
     }
-
+if (currentFilter === 'closedSales') {
+    filteredData = data.filter(donor =>
+        donor.status === 'Closed Sale'
+    );
+}
     if (currentFilter === 'all') {
         filteredData = data;
     }
