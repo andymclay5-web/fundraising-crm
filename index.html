@@ -68,6 +68,7 @@ button {
 <tr>
 <th>Business</th>
 <th>Phone</th>
+<th>Phone Notes</th>
 <th>Location</th>
 <th>Status</th>
 <th>Suggested Ask</th>
@@ -134,7 +135,14 @@ async function loadDonors() {
             <tr class="${statusClass}">
                 <td>${donor.business_name || ''}</td>
                 <td>${donor.mobile || ''}</td>
-                <td>${donor.location || ''}</td>
+<td>
+<textarea
+onchange="updatePhoneNotes(${donor.id}, this.value)"
+rows="2"
+style="width: 100%;"
+>${donor.phone_notes || ''}</textarea>
+</td>
+<td>${donor.location || ''}</td>
 <td>
 <select onchange="updateStatus(${donor.id}, this.value)">
 <option ${donor.status === 'Not Called' ? 'selected' : ''}>Not Called</option>
@@ -238,7 +246,20 @@ async function updateStatus(id, status) {
         console.log('Suggested ask updated');
     }
 }
+async function updatePhoneNotes(id, phone_notes) {
 
+    const { error } = await client
+        .from('donors')
+        .update({ phone_notes: phone_notes })
+        .eq('id', id);
+
+    if (error) {
+        console.error('Phone notes update failed:', error);
+        alert('Failed to save phone notes');
+    } else {
+        console.log('Phone notes updated');
+    }
+}
 async function addDonor() {
 
     const business_name = document.getElementById('business_name').value;
