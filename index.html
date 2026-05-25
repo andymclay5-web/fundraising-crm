@@ -91,7 +91,7 @@ button {
 
     <textarea id="notes" placeholder="Notes"></textarea><br><br>
 
-    <button onclick="addDonor()">Add Donor</button>
+  <button onclick="addDonor()">Add Donor</button>
 </div>
 </table>
 
@@ -109,7 +109,7 @@ const client = supabase.createClient(
 async function loadDonors() {
 
     const { data, error } = await client
-        .from('Donors')
+        .from('donors')
         .select('*');
 
     if (error) {
@@ -175,7 +175,7 @@ loadDonors();
 
 async function updateStatus(id, status) {
     const { error } = await client
-        .from('Donors')
+        .from('donors')
         .update({ status: status })
         .eq('id', id);
 
@@ -188,7 +188,7 @@ async function updateStatus(id, status) {
 }
     async function updateNotes(id, notes) {
     const { error } = await client
-        .from('Donors')
+        .from('donors')
         .update({ notes: notes })
         .eq('id', id);
 
@@ -201,7 +201,7 @@ async function updateStatus(id, status) {
 }
     async function updateCallbackDate(id, callback_date) {
     const { error } = await client
-        .from('Donors')
+        .from('donors')
         .update({ callback_date: callback_date })
         .eq('id', id);
 
@@ -221,7 +221,7 @@ async function updateStatus(id, status) {
     const notes = document.getElementById('notes').value;
 
     const { error } = await client
-        .from('Donors')
+        .from('donors')
         .insert([
             {
                 business_name,
