@@ -146,7 +146,14 @@ async function loadDonors() {
 <option ${donor.status === 'Not Interested' ? 'selected' : ''}>Not Interested</option>
 </select>
 </td>
-              <td>$${donor.suggested_ask || 0}</td>
+            <td>
+<input
+type="number"
+value="${donor.suggested_ask || ''}"
+onchange="updateSuggestedAsk(${donor.id}, this.value)"
+style="width: 90px;"
+>
+</td>
 <td>${donor.sales_history || ''}</td>
 
 
@@ -203,7 +210,8 @@ async function updateStatus(id, status) {
         console.log('Notes updated');
     }
 }
-    async function updateCallbackDate(id, callback_date) {
+
+     async function updateCallbackDate(id, callback_date) {
     const { error } = await client
         .from('donors')
         .update({ callback_date: callback_date })
@@ -216,7 +224,22 @@ async function updateStatus(id, status) {
         console.log('Callback date updated');
     }
 }
-    async function addDonor() {
+  async function updateSuggestedAsk(id, suggested_ask) {
+
+    const { error } = await client
+        .from('donors')
+        .update({ suggested_ask: suggested_ask })
+        .eq('id', id);
+
+    if (error) {
+        console.error('Suggested ask update failed:', error);
+        alert('Failed to save suggested ask');
+    } else {
+        console.log('Suggested ask updated');
+    }
+}
+
+async function addDonor() {
 
     const business_name = document.getElementById('business_name').value;
     const phone = document.getElementById('phone').value;
