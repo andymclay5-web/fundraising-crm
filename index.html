@@ -126,58 +126,51 @@ function setFilter(filterName) {
 async function loadDonors() {
 
     const { data, error } = await client
-   const { data, error } = await client
-    .from('donors')
-    .select('*')
-    .order('suggested_ask', { ascending: false });
-
-if (error) {
-    console.log(error);
-    return;
-}
-
-let filteredData = data;
-
-if (currentFilter === 'callQueue') {
-    filteredData = data.filter(donor =>
-        !donor.status || donor.status === 'Not Called'
-    );
-}
-
-if (currentFilter === 'callbacks') {
-    filteredData = data.filter(donor =>
-        donor.status === 'Callback Requested'
-    );
-}
-
-if (currentFilter === 'email') {
-    filteredData = data.filter(donor =>
-        donor.status === 'Email Sent'
-    );
-}
-
-if (currentFilter === 'noAnswer') {
-    filteredData = data.filter(donor =>
-        donor.status === 'No Answer'
-    );
-}
-
-if (currentFilter === 'all') {
-    filteredData = data;
-}
-    .or('status.is.null,status.eq.Not Called')
-    .order('suggested_ask', { ascending: false });
+        .from('donors')
+        .select('*')
+        .order('suggested_ask', { ascending: false });
 
     if (error) {
         console.log(error);
+        alert('Could not load donors');
         return;
+    }
+
+    let filteredData = data;
+
+    if (currentFilter === 'callQueue') {
+        filteredData = data.filter(donor =>
+            !donor.status || donor.status === 'Not Called'
+        );
+    }
+
+    if (currentFilter === 'callbacks') {
+        filteredData = data.filter(donor =>
+            donor.status === 'Callback Requested'
+        );
+    }
+
+    if (currentFilter === 'email') {
+        filteredData = data.filter(donor =>
+            donor.status === 'Email Sent'
+        );
+    }
+
+    if (currentFilter === 'noAnswer') {
+        filteredData = data.filter(donor =>
+            donor.status === 'No Answer'
+        );
+    }
+
+    if (currentFilter === 'all') {
+        filteredData = data;
     }
 
     const donorTable = document.getElementById('donorTable');
 
     donorTable.innerHTML = '';
 
-filteredData.forEach
+    filteredData.forEach(donor => {
 
         let statusClass = '';
 
@@ -187,77 +180,74 @@ filteredData.forEach
 
         donorTable.innerHTML += `
             <tr class="${statusClass}">
-              <td>${donor.business_name || ''}</td>
-<td>${donor.contact_name || ''}</td>
+                <td>${donor.business_name || ''}</td>
+                <td>${donor.contact_name || ''}</td>
 
-<td>
-${donor.mobile || ''}
-<br>
-<button onclick="window.location.href='tel:${donor.mobile}'">Call Mobile</button>
-</td>
-
-<td>
-${donor.office_phone || ''}
-<br>
-<button onclick="window.location.href='tel:${donor.office_phone}'">Call Main</button>
-</td>
-
-<td>
-<textarea
-onchange="updatePhoneNotes(${donor.id}, this.value)"
-rows="2"
-style="width: 100%;"
->${donor.phone_notes || ''}</textarea>
-</td>
-<td>${donor.location || ''}</td>
-<td>
-<select onchange="updateStatus(${donor.id}, this.value)">
-<option ${donor.status === 'Not Called' ? 'selected' : ''}>Not Called</option>
-<option ${donor.status === 'No Answer' ? 'selected' : ''}>No Answer</option>
-<option ${donor.status === 'Callback Requested' ? 'selected' : ''}>Callback Requested</option>
-<option ${donor.status === 'Follow Up' ? 'selected' : ''}>Follow Up</option>
-<option ${donor.status === 'Email Sent' ? 'selected' : ''}>Email Sent</option>
-<option ${donor.status === 'Interested' ? 'selected' : ''}>Interested</option>
-<option ${donor.status === 'Closed Sale' ? 'selected' : ''}>Closed Sale</option>
-<option ${donor.status === 'Not Interested' ? 'selected' : ''}>Not Interested</option>
-</select>
-</td>
-            <td>
-<input
-type="number"
-value="${donor.suggested_ask || ''}"
-onchange="updateSuggestedAsk(${donor.id}, this.value)"
-style="width: 90px;"
->
-</td>
-<td>${donor.sales_history || ''}</td>
-
-
-              <td>
-<textarea
-onchange="updateNotes(${donor.id}, this.value)"
-rows="3"
-style="width: 100%;"
->${donor.notes || ''}</textarea>
-</td>
-<td>
-<input
-type="date"
-value="${donor.callback_date || ''}"
-onchange="updateCallbackDate(${donor.id}, this.value)"
->
-</td>
                 <td>
-                    
-                        Call
-                    </button>
+                    ${donor.mobile || ''}
+                    <br>
+                    <button onclick="window.location.href='tel:${donor.mobile}'">Call Mobile</button>
+                </td>
+
+                <td>
+                    ${donor.office_phone || ''}
+                    <br>
+                    <button onclick="window.location.href='tel:${donor.office_phone}'">Call Main</button>
+                </td>
+
+                <td>
+                    <textarea
+                    onchange="updatePhoneNotes(${donor.id}, this.value)"
+                    rows="2"
+                    style="width: 100%;"
+                    >${donor.phone_notes || ''}</textarea>
+                </td>
+
+                <td>${donor.location || ''}</td>
+
+                <td>
+                    <select onchange="updateStatus(${donor.id}, this.value)">
+                        <option ${donor.status === 'Not Called' ? 'selected' : ''}>Not Called</option>
+                        <option ${donor.status === 'No Answer' ? 'selected' : ''}>No Answer</option>
+                        <option ${donor.status === 'Callback Requested' ? 'selected' : ''}>Callback Requested</option>
+                        <option ${donor.status === 'Follow Up' ? 'selected' : ''}>Follow Up</option>
+                        <option ${donor.status === 'Email Sent' ? 'selected' : ''}>Email Sent</option>
+                        <option ${donor.status === 'Interested' ? 'selected' : ''}>Interested</option>
+                        <option ${donor.status === 'Closed Sale' ? 'selected' : ''}>Closed Sale</option>
+                        <option ${donor.status === 'Not Interested' ? 'selected' : ''}>Not Interested</option>
+                    </select>
+                </td>
+
+                <td>
+                    <input
+                    type="number"
+                    value="${donor.suggested_ask || ''}"
+                    onchange="updateSuggestedAsk(${donor.id}, this.value)"
+                    style="width: 90px;"
+                    >
+                </td>
+
+                <td>${donor.sales_history || ''}</td>
+
+                <td>
+                    <textarea
+                    onchange="updateNotes(${donor.id}, this.value)"
+                    rows="3"
+                    style="width: 100%;"
+                    >${donor.notes || ''}</textarea>
+                </td>
+
+                <td>
+                    <input
+                    type="date"
+                    value="${donor.callback_date || ''}"
+                    onchange="updateCallbackDate(${donor.id}, this.value)"
+                    >
                 </td>
             </tr>
         `;
     });
-
 }
-
 loadDonors();
 
 async function updateStatus(id, status) {
