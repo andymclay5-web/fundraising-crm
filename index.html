@@ -78,6 +78,7 @@ button {
 <th>Contact</th>
 <th>Mobile</th>
 <th>Main Number</th>
+<th>Email</th>
 <th>Phone Notes</th>
 <th>Location</th>
 <th>Status</th>
@@ -204,14 +205,22 @@ if (currentFilter === 'closedSales') {
                 </td>
 
                 <td>
-                    <textarea
-                    onchange="updatePhoneNotes(${donor.id}, this.value)"
-                    rows="2"
-                    style="width: 100%;"
-                    >${donor.phone_notes || ''}</textarea>
-                </td>
+<input
+value="${donor.email || ''}"
+onchange="updateEmail(${donor.id}, this.value)"
+style="width: 180px;"
+>
+</td>
 
-                <td>${donor.location || ''}</td>
+<td>
+<textarea
+onchange="updatePhoneNotes(${donor.id}, this.value)"
+rows="2"
+style="width: 100%;"
+>${donor.phone_notes || ''}</textarea>
+</td>
+
+<td>${donor.location || ''}</td>
 
                 <td>
                     <select onchange="updateStatus(${donor.id}, this.value)">
@@ -324,6 +333,20 @@ async function updatePhoneNotes(id, phone_notes) {
         alert('Failed to save phone notes');
     } else {
         console.log('Phone notes updated');
+    }
+}
+    async function updateEmail(id, email) {
+
+    const { error } = await client
+        .from('donors')
+        .update({ email: email })
+        .eq('id', id);
+
+    if (error) {
+        console.error('Email update failed:', error);
+        alert('Failed to save email');
+    } else {
+        console.log('Email updated');
     }
 }
 async function addDonor() {
