@@ -345,12 +345,7 @@ async function updatePhoneNotes(id, phone_notes) {
         console.log('Email updated');
     }
 }
-    async function showReport() {
-        const emailsSentList = data.filter(donor =>
-    donor.status === 'Email Sent'
-);
-
-const campaignCode = '1A2601';
+   async function showReport() {
 
     const { data, error } = await client
         .from('donors')
@@ -361,6 +356,87 @@ const campaignCode = '1A2601';
         alert('Could not load report');
         return;
     }
+
+    const campaignCode = '1A2601';
+
+    const totalContacts = data.length;
+
+    const callQueue = data.filter(donor =>
+        !donor.status || donor.status === 'Not Called'
+    ).length;
+
+    const noAnswer = data.filter(donor =>
+        donor.status === 'No Answer'
+    ).length;
+
+    const callbacks = data.filter(donor =>
+        donor.status === 'Callback Requested'
+    ).length;
+
+    const emailsSentList = data.filter(donor =>
+        donor.status === 'Email Sent'
+    );
+
+    const closedSales = data.filter(donor =>
+        donor.status === 'Closed Sale'
+    );
+
+    const emailsSent = emailsSentList.length;
+    const closedSalesCount = closedSales.length;
+
+    const closedSalesTotal = closedSales.reduce((sum, donor) => {
+        return sum + Number(donor.suggested_ask || 0);
+    }, 0);
+
+    const callsMade = totalContacts - callQueue;
+    const callsAnswered = callsMade - noAnswer;
+
+    const reportBox = document.getElementById('reportBox');
+
+    reportBox.style.display = 'block';
+
+    reportBox.innerHTML = `
+        <h2>Fundraising Report</h2>
+
+        <p><strong>Total contacts:</strong> ${totalContacts}</p>
+        <p><strong>Calls made / worked:</strong> ${callsMade}</p>
+        <p><strong>Calls answered:</strong> ${callsAnswered}</p>
+        <p><strong>No answers:</strong> ${noAnswer}</p>
+        <p><strong>Callbacks:</strong> ${callbacks}</p>
+        <p><strong>Emails sent:</strong> ${emailsSent}</p>
+        <p><strong>Closed sales:</strong> ${closedSalesCount}</p>
+        <p><strong>Total sales amount:</strong> $${closedSalesTotal}</p>
+
+        <h3>Closed Sales</h3>
+        <ul>
+            ${closedSales.map((donor, index) => `
+                <li>
+                    ID: ${donor.card_id || ''} —
+                    Amount: $${donor.suggested_ask || 0} —
+                    Campaign: ${campaignCode} —
+                    Sale #: ${index + 1} —
+                    Contact: ${donor.contact_name || ''} —
+                    Email: ${donor.email || ''}
+                </li>
+            `).join('')}
+        </ul>
+
+        <h3>Email Sent Follow Ups</h3>
+        <ul>
+            ${emailsSentList.map(donor => `
+                <li>
+                    ID: ${donor.card_id || ''} —
+                    Business: ${donor.business_name || ''} —
+                    Contact: ${donor.contact_name || ''} —
+                    Amount: $${donor.suggested_ask || 0} —
+                    Follow-up Date: ${donor.callback_date || ''}
+                </li>
+            `).join('')}
+        </ul>
+
+        <button onclick="window.print()">Print / Save as PDF</button>
+    `;
+}
 
     const totalContacts = data.length;
 
