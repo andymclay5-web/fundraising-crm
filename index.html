@@ -30,6 +30,7 @@ th, td {
     border: 1px solid #ccc;
     padding: 10px;
     text-align: left;
+    vertical-align: top;
 }
 
 th {
@@ -52,6 +53,11 @@ th {
 button {
     padding: 6px 10px;
     cursor: pointer;
+    margin: 2px;
+}
+
+input, textarea, select {
+    font-family: Arial, sans-serif;
 }
 
 </style>
@@ -61,6 +67,7 @@ button {
 <body>
 
 <h1>Fundraising CRM Dashboard live</h1>
+
 <div style="margin-bottom: 15px;">
     <button onclick="setFilter('callQueue')">Call Queue</button>
     <button onclick="setFilter('callbacks')">Callbacks</button>
@@ -69,35 +76,17 @@ button {
     <button onclick="setFilter('closedSales')">Closed Sales</button>
     <button onclick="setFilter('all')">All Contacts</button>
     <button onclick="showReport()">Report</button>
+
     <div id="reportBox" style="margin: 15px 0; padding: 15px; background: white; border: 1px solid #ccc; display: none;"></div>
 </div>
-<table>
 
-<thead>
-<tr>
-<th>ID</th>
-<th>Business</th>
-<th>Contact</th>
-<th>Mobile</th>
-<th>Main Number</th>
-<th>Email</th>
-
-<th>Location</th>
-<th>Status</th>
-<th>Amount</th>
-<th>Sales History</th>
-<th>Notes</th>
-<th>Callback Date</th>
-
-</tr>
-</thead>
-
-<tbody id="donorTable"></tbody>
-<div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc;">
+<div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; background: white;">
     <h2>Add Donor</h2>
+
     <input id="card_id" placeholder="Card / PCL ID"><br><br>
 
     <input id="business_name" placeholder="Business Name"><br><br>
+
     <input id="contact_name" placeholder="Contact Name"><br><br>
 
     <input id="phone" placeholder="Phone"><br><br>
@@ -108,8 +97,30 @@ button {
 
     <textarea id="notes" placeholder="Notes"></textarea><br><br>
 
-  <button onclick="addDonor()">Add Donor</button>
+    <button onclick="addDonor()">Add Donor</button>
 </div>
+
+<table>
+
+<thead>
+<tr>
+<th>ID</th>
+<th>Business</th>
+<th>Contact</th>
+<th>Mobile</th>
+<th>Main Number</th>
+<th>Email</th>
+<th>Location</th>
+<th>Status</th>
+<th>Amount</th>
+<th>Sales History</th>
+<th>Notes</th>
+<th>Callback Date</th>
+</tr>
+</thead>
+
+<tbody id="donorTable"></tbody>
+
 </table>
 
 <script>
@@ -122,7 +133,8 @@ const client = supabase.createClient(
     SUPABASE_URL,
     SUPABASE_KEY
 );
-    let currentFilter = 'callQueue';
+
+let currentFilter = 'callQueue';
 
 function setFilter(filterName) {
     currentFilter = filterName;
@@ -167,11 +179,13 @@ async function loadDonors() {
             donor.status === 'No Answer'
         );
     }
-if (currentFilter === 'closedSales') {
-    filteredData = data.filter(donor =>
-        donor.status === 'Closed Sale'
-    );
-}
+
+    if (currentFilter === 'closedSales') {
+        filteredData = data.filter(donor =>
+            donor.status === 'Closed Sale'
+        );
+    }
+
     if (currentFilter === 'all') {
         filteredData = data;
     }
@@ -190,33 +204,33 @@ if (currentFilter === 'closedSales') {
 
         donorTable.innerHTML += `
             <tr class="${statusClass}">
-               <td>${donor.card_id || ''}</td>
-<td>${donor.business_name || ''}</td>
+                <td>${donor.card_id || ''}</td>
+
+                <td>${donor.business_name || ''}</td>
+
                 <td>${donor.contact_name || ''}</td>
 
                 <td>
                     ${donor.mobile || ''}
                     <br>
-                    <button onclick="window.location.href='tel:${donor.mobile}'">Call Mobile</button>
+                    <button onclick="window.location.href='tel:${donor.mobile || ''}'">Call Mobile</button>
                 </td>
 
                 <td>
                     ${donor.office_phone || ''}
                     <br>
-                    <button onclick="window.location.href='tel:${donor.office_phone}'">Call Main</button>
+                    <button onclick="window.location.href='tel:${donor.office_phone || ''}'">Call Main</button>
                 </td>
 
                 <td>
-<input
-value="${donor.email || ''}"
-onchange="updateEmail(${donor.id}, this.value)"
-style="width: 180px;"
->
-</td>
+                    <input
+                    value="${donor.email || ''}"
+                    onchange="updateEmail(${donor.id}, this.value)"
+                    style="width: 180px;"
+                    >
+                </td>
 
-
-
-<td>${donor.location || ''}</td>
+                <td>${donor.location || ''}</td>
 
                 <td>
                     <select onchange="updateStatus(${donor.id}, this.value)">
@@ -245,8 +259,8 @@ style="width: 180px;"
                 <td>
                     <textarea
                     onchange="updateNotes(${donor.id}, this.value)"
-                    rows="3"
-                    style="width: 100%;"
+                    rows="6"
+                    style="width: 280px;"
                     >${donor.notes || ''}</textarea>
                 </td>
 
@@ -261,6 +275,7 @@ style="width: 180px;"
         `;
     });
 }
+
 loadDonors();
 
 async function updateStatus(id, status) {
@@ -274,9 +289,11 @@ async function updateStatus(id, status) {
         alert('Failed to save status');
     } else {
         console.log('Status updated');
+        loadDonors();
     }
 }
-    async function updateNotes(id, notes) {
+
+async function updateNotes(id, notes) {
     const { error } = await client
         .from('donors')
         .update({ notes: notes })
@@ -290,7 +307,7 @@ async function updateStatus(id, status) {
     }
 }
 
-     async function updateCallbackDate(id, callback_date) {
+async function updateCallbackDate(id, callback_date) {
     const { error } = await client
         .from('donors')
         .update({ callback_date: callback_date })
@@ -303,36 +320,22 @@ async function updateStatus(id, status) {
         console.log('Callback date updated');
     }
 }
-  async function updateSuggestedAsk(id, suggested_ask) {
 
+async function updateSuggestedAsk(id, suggested_ask) {
     const { error } = await client
         .from('donors')
         .update({ suggested_ask: suggested_ask })
         .eq('id', id);
 
     if (error) {
-        console.error('Suggested ask update failed:', error);
-        alert('Failed to save suggested ask');
+        console.error('Amount update failed:', error);
+        alert('Failed to save amount');
     } else {
-        console.log('Suggested ask updated');
+        console.log('Amount updated');
     }
 }
-async function updatePhoneNotes(id, phone_notes) {
 
-    const { error } = await client
-        .from('donors')
-        .update({ phone_notes: phone_notes })
-        .eq('id', id);
-
-    if (error) {
-        console.error('Phone notes update failed:', error);
-        alert('Failed to save phone notes');
-    } else {
-        console.log('Phone notes updated');
-    }
-}
-    async function updateEmail(id, email) {
-
+async function updateEmail(id, email) {
     const { error } = await client
         .from('donors')
         .update({ email: email })
@@ -345,7 +348,8 @@ async function updatePhoneNotes(id, phone_notes) {
         console.log('Email updated');
     }
 }
-   async function showReport() {
+
+async function showReport() {
 
     const { data, error } = await client
         .from('donors')
@@ -391,133 +395,56 @@ async function updatePhoneNotes(id, phone_notes) {
     const callsMade = totalContacts - callQueue;
     const callsAnswered = callsMade - noAnswer;
 
-    const reportBox = document.getElementById('reportBox');
+    let closedSalesHtml = '';
 
-    reportBox.style.display = 'block';
+    closedSales.forEach((donor, index) => {
+        closedSalesHtml += '<li>' +
+            'ID: ' + (donor.card_id || '') +
+            ' — Amount: $' + (donor.suggested_ask || 0) +
+            ' — Campaign: ' + campaignCode +
+            ' — Sale #: ' + (index + 1) +
+            ' — Contact: ' + (donor.contact_name || '') +
+            ' — Email: ' + (donor.email || '') +
+            '</li>';
+    });
 
-    reportBox.innerHTML = `
-        <h2>Fundraising Report</h2>
+    let emailsSentHtml = '';
 
-        <p><strong>Total contacts:</strong> ${totalContacts}</p>
-        <p><strong>Calls made / worked:</strong> ${callsMade}</p>
-        <p><strong>Calls answered:</strong> ${callsAnswered}</p>
-        <p><strong>No answers:</strong> ${noAnswer}</p>
-        <p><strong>Callbacks:</strong> ${callbacks}</p>
-        <p><strong>Emails sent:</strong> ${emailsSent}</p>
-        <p><strong>Closed sales:</strong> ${closedSalesCount}</p>
-        <p><strong>Total sales amount:</strong> $${closedSalesTotal}</p>
-
-        <h3>Closed Sales</h3>
-        <ul>
-            ${closedSales.map((donor, index) => `
-                <li>
-                    ID: ${donor.card_id || ''} —
-                    Amount: $${donor.suggested_ask || 0} —
-                    Campaign: ${campaignCode} —
-                    Sale #: ${index + 1} —
-                    Contact: ${donor.contact_name || ''} —
-                    Email: ${donor.email || ''}
-                </li>
-            `).join('')}
-        </ul>
-
-        <h3>Email Sent Follow Ups</h3>
-        <ul>
-            ${emailsSentList.map(donor => `
-                <li>
-                    ID: ${donor.card_id || ''} —
-                    Business: ${donor.business_name || ''} —
-                    Contact: ${donor.contact_name || ''} —
-                    Amount: $${donor.suggested_ask || 0} —
-                    Follow-up Date: ${donor.callback_date || ''}
-                </li>
-            `).join('')}
-        </ul>
-
-        <button onclick="window.print()">Print / Save as PDF</button>
-    `;
-}
-
-    const totalContacts = data.length;
-
-    const callQueue = data.filter(donor =>
-        !donor.status || donor.status === 'Not Called'
-    ).length;
-
-    const noAnswer = data.filter(donor =>
-        donor.status === 'No Answer'
-    ).length;
-
-    const callbacks = data.filter(donor =>
-        donor.status === 'Callback Requested'
-    ).length;
-
-    const emailsSent = data.filter(donor =>
-        donor.status === 'Email Sent'
-    ).length;
-
-    const closedSales = data.filter(donor =>
-        donor.status === 'Closed Sale'
-    );
-
-    const closedSalesCount = closedSales.length;
-
-    const closedSalesTotal = closedSales.reduce((sum, donor) => {
-        return sum + Number(donor.suggested_ask || 0);
-    }, 0);
-
-    const callsMade = totalContacts - callQueue;
-    const callsAnswered = callsMade - noAnswer;
+    emailsSentList.forEach(donor => {
+        emailsSentHtml += '<li>' +
+            'ID: ' + (donor.card_id || '') +
+            ' — Business: ' + (donor.business_name || '') +
+            ' — Contact: ' + (donor.contact_name || '') +
+            ' — Amount: $' + (donor.suggested_ask || 0) +
+            ' — Follow-up Date: ' + (donor.callback_date || '') +
+            '</li>';
+    });
 
     const reportBox = document.getElementById('reportBox');
 
     reportBox.style.display = 'block';
 
-    reportBox.innerHTML = `
-        <h2>Fundraising Report</h2>
-
-        <p><strong>Total contacts:</strong> ${totalContacts}</p>
-        <p><strong>Calls made / worked:</strong> ${callsMade}</p>
-        <p><strong>Calls answered:</strong> ${callsAnswered}</p>
-        <p><strong>No answers:</strong> ${noAnswer}</p>
-        <p><strong>Callbacks:</strong> ${callbacks}</p>
-        <p><strong>Emails sent:</strong> ${emailsSent}</p>
-        <p><strong>Closed sales:</strong> ${closedSalesCount}</p>
-        <p><strong>Total sales amount:</strong> $${closedSalesTotal}</p>
-
-       <h3>Closed Sales</h3>
-<ul>
-    ${closedSales.map((donor, index) => `
-        <li>
-            ID: ${donor.card_id || ''} —
-            Amount: $${donor.suggested_ask || 0} —
-            Campaign: ${campaignCode} —
-            Sale #: ${index + 1} —
-            Contact: ${donor.contact_name || ''} —
-            Email: ${donor.email || ''}
-        </li>
-    `).join('')}
-</ul>
-
-<h3>Email Sent Follow Ups</h3>
-<ul>
-    ${emailsSentList.map(donor => `
-        <li>
-            ID: ${donor.card_id || ''} —
-            Business: ${donor.business_name || ''} —
-            Contact: ${donor.contact_name || ''} —
-            Amount: $${donor.suggested_ask || 0} —
-            Follow-up Date: ${donor.callback_date || ''}
-        </li>
-    `).join('')}
-</ul>
-
-        <button onclick="window.print()">Print / Save as PDF</button>
-    `;
+    reportBox.innerHTML =
+        '<h2>Fundraising Report</h2>' +
+        '<p><strong>Total contacts:</strong> ' + totalContacts + '</p>' +
+        '<p><strong>Calls made / worked:</strong> ' + callsMade + '</p>' +
+        '<p><strong>Calls answered:</strong> ' + callsAnswered + '</p>' +
+        '<p><strong>No answers:</strong> ' + noAnswer + '</p>' +
+        '<p><strong>Callbacks:</strong> ' + callbacks + '</p>' +
+        '<p><strong>Emails sent:</strong> ' + emailsSent + '</p>' +
+        '<p><strong>Closed sales:</strong> ' + closedSalesCount + '</p>' +
+        '<p><strong>Total sales amount:</strong> $' + closedSalesTotal + '</p>' +
+        '<h3>Closed Sales</h3>' +
+        '<ul>' + closedSalesHtml + '</ul>' +
+        '<h3>Email Sent Follow Ups</h3>' +
+        '<ul>' + emailsSentHtml + '</ul>' +
+        '<button onclick="window.print()">Print / Save as PDF</button>';
 }
+
 async function addDonor() {
 
     const card_id = document.getElementById('card_id').value;
+    const business_name = document.getElementById('business_name').value;
     const contact_name = document.getElementById('contact_name').value;
     const phone = document.getElementById('phone').value;
     const location = document.getElementById('location').value;
@@ -527,15 +454,15 @@ async function addDonor() {
     const { error } = await client
         .from('donors')
         .insert([
-          {
-    card_id,
-    business_name,
-    contact_name,
-    mobile: phone,
-    location,
-    status,
-    notes
-}
+            {
+                card_id,
+                business_name,
+                contact_name,
+                mobile: phone,
+                location,
+                status,
+                notes
+            }
         ]);
 
     if (error) {
@@ -545,7 +472,8 @@ async function addDonor() {
         alert('Donor added');
 
         loadDonors();
-document.getElementById('card_id').value = '';
+
+        document.getElementById('card_id').value = '';
         document.getElementById('business_name').value = '';
         document.getElementById('contact_name').value = '';
         document.getElementById('phone').value = '';
@@ -554,6 +482,9 @@ document.getElementById('card_id').value = '';
         document.getElementById('notes').value = '';
     }
 }
+
 </script>
+
 </body>
+
 </html>
