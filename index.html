@@ -24,11 +24,12 @@ table {
     width: 100%;
     border-collapse: collapse;
     background: white;
+    font-size: 13px;
 }
 
 th, td {
     border: 1px solid #ccc;
-    padding: 10px;
+    padding: 6px;
     text-align: left;
     vertical-align: top;
 }
@@ -51,13 +52,88 @@ th {
 }
 
 button {
-    padding: 6px 10px;
+    padding: 5px 8px;
     cursor: pointer;
     margin: 2px;
+    font-size: 12px;
 }
 
 input, textarea, select {
     font-family: Arial, sans-serif;
+    font-size: 12px;
+}
+
+.small-input {
+    width: 80px;
+}
+
+.medium-input {
+    width: 120px;
+}
+
+.email-input {
+    width: 165px;
+}
+
+.location-cell {
+    width: 85px;
+    max-width: 85px;
+    font-size: 12px;
+}
+
+.status-select {
+    width: 105px;
+    font-size: 12px;
+}
+
+.amount-input {
+    width: 65px;
+}
+
+.notes-box {
+    width: 340px;
+    min-height: 120px;
+}
+
+#reportBox {
+    margin: 15px 0;
+    padding: 20px;
+    background: white;
+    border: 1px solid #ccc;
+    display: none;
+}
+
+.report-line {
+    margin-bottom: 8px;
+}
+
+.report-list li {
+    margin-bottom: 8px;
+}
+
+@media print {
+    body {
+        background: white;
+        padding: 0;
+    }
+
+    h1,
+    #topButtons,
+    #addDonorBox,
+    #crmTable {
+        display: none !important;
+    }
+
+    #reportBox {
+        display: block !important;
+        border: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .no-print {
+        display: none !important;
+    }
 }
 
 </style>
@@ -68,7 +144,7 @@ input, textarea, select {
 
 <h1>Fundraising CRM Dashboard live</h1>
 
-<div style="margin-bottom: 15px;">
+<div id="topButtons" style="margin-bottom: 15px;">
     <button onclick="setFilter('callQueue')">Call Queue</button>
     <button onclick="setFilter('callbacks')">Callbacks</button>
     <button onclick="setFilter('email')">Email Follow Up</button>
@@ -76,11 +152,11 @@ input, textarea, select {
     <button onclick="setFilter('closedSales')">Closed Sales</button>
     <button onclick="setFilter('all')">All Contacts</button>
     <button onclick="showReport()">Report</button>
-
-    <div id="reportBox" style="margin: 15px 0; padding: 15px; background: white; border: 1px solid #ccc; display: none;"></div>
 </div>
 
-<div style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; background: white;">
+<div id="reportBox"></div>
+
+<div id="addDonorBox" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; background: white;">
     <h2>Add Donor</h2>
 
     <input id="card_id" placeholder="Card / PCL ID"><br><br>
@@ -89,7 +165,11 @@ input, textarea, select {
 
     <input id="contact_name" placeholder="Contact Name"><br><br>
 
-    <input id="phone" placeholder="Phone"><br><br>
+    <input id="phone" placeholder="Mobile"><br><br>
+
+    <input id="office_phone" placeholder="Main Number"><br><br>
+
+    <input id="email" placeholder="Email"><br><br>
 
     <input id="location" placeholder="Location"><br><br>
 
@@ -100,7 +180,7 @@ input, textarea, select {
     <button onclick="addDonor()">Add Donor</button>
 </div>
 
-<table>
+<table id="crmTable">
 
 <thead>
 <tr>
@@ -138,7 +218,16 @@ let currentFilter = 'callQueue';
 
 function setFilter(filterName) {
     currentFilter = filterName;
+
+    document.getElementById('reportBox').style.display = 'none';
+    document.getElementById('addDonorBox').style.display = 'block';
+    document.getElementById('crmTable').style.display = 'table';
+
     loadDonors();
+}
+
+function backToCallQueue() {
+    setFilter('callQueue');
 }
 
 async function loadDonors() {
@@ -211,13 +300,21 @@ async function loadDonors() {
                 <td>${donor.contact_name || ''}</td>
 
                 <td>
-                    ${donor.mobile || ''}
+                    <input
+                    value="${donor.mobile || ''}"
+                    onchange="updateMobile(${donor.id}, this.value)"
+                    class="medium-input"
+                    >
                     <br>
                     <button onclick="window.location.href='tel:${donor.mobile || ''}'">Call Mobile</button>
                 </td>
 
                 <td>
-                    ${donor.office_phone || ''}
+                    <input
+                    value="${donor.office_phone || ''}"
+                    onchange="updateOfficePhone(${donor.id}, this.value)"
+                    class="medium-input"
+                    >
                     <br>
                     <button onclick="window.location.href='tel:${donor.office_phone || ''}'">Call Main</button>
                 </td>
@@ -226,14 +323,14 @@ async function loadDonors() {
                     <input
                     value="${donor.email || ''}"
                     onchange="updateEmail(${donor.id}, this.value)"
-                    style="width: 180px;"
+                    class="email-input"
                     >
                 </td>
 
-                <td>${donor.location || ''}</td>
+                <td class="location-cell">${donor.location || ''}</td>
 
                 <td>
-                    <select onchange="updateStatus(${donor.id}, this.value)">
+                    <select onchange="updateStatus(${donor.id}, this.value)" class="status-select">
                         <option ${donor.status === 'Not Called' ? 'selected' : ''}>Not Called</option>
                         <option ${donor.status === 'No Answer' ? 'selected' : ''}>No Answer</option>
                         <option ${donor.status === 'Callback Requested' ? 'selected' : ''}>Callback Requested</option>
@@ -250,7 +347,7 @@ async function loadDonors() {
                     type="number"
                     value="${donor.suggested_ask || ''}"
                     onchange="updateSuggestedAsk(${donor.id}, this.value)"
-                    style="width: 90px;"
+                    class="amount-input"
                     >
                 </td>
 
@@ -259,8 +356,8 @@ async function loadDonors() {
                 <td>
                     <textarea
                     onchange="updateNotes(${donor.id}, this.value)"
-                    rows="6"
-                    style="width: 280px;"
+                    rows="7"
+                    class="notes-box"
                     >${donor.notes || ''}</textarea>
                 </td>
 
@@ -269,6 +366,7 @@ async function loadDonors() {
                     type="date"
                     value="${donor.callback_date || ''}"
                     onchange="updateCallbackDate(${donor.id}, this.value)"
+                    style="width: 120px;"
                     >
                 </td>
             </tr>
@@ -290,6 +388,34 @@ async function updateStatus(id, status) {
     } else {
         console.log('Status updated');
         loadDonors();
+    }
+}
+
+async function updateMobile(id, mobile) {
+    const { error } = await client
+        .from('donors')
+        .update({ mobile: mobile })
+        .eq('id', id);
+
+    if (error) {
+        console.error('Mobile update failed:', error);
+        alert('Failed to save mobile');
+    } else {
+        console.log('Mobile updated');
+    }
+}
+
+async function updateOfficePhone(id, office_phone) {
+    const { error } = await client
+        .from('donors')
+        .update({ office_phone: office_phone })
+        .eq('id', id);
+
+    if (error) {
+        console.error('Main number update failed:', error);
+        alert('Failed to save main number');
+    } else {
+        console.log('Main number updated');
     }
 }
 
@@ -422,23 +548,29 @@ async function showReport() {
 
     const reportBox = document.getElementById('reportBox');
 
+    document.getElementById('addDonorBox').style.display = 'none';
+    document.getElementById('crmTable').style.display = 'none';
+
     reportBox.style.display = 'block';
 
     reportBox.innerHTML =
         '<h2>Fundraising Report</h2>' +
-        '<p><strong>Total contacts:</strong> ' + totalContacts + '</p>' +
-        '<p><strong>Calls made / worked:</strong> ' + callsMade + '</p>' +
-        '<p><strong>Calls answered:</strong> ' + callsAnswered + '</p>' +
-        '<p><strong>No answers:</strong> ' + noAnswer + '</p>' +
-        '<p><strong>Callbacks:</strong> ' + callbacks + '</p>' +
-        '<p><strong>Emails sent:</strong> ' + emailsSent + '</p>' +
-        '<p><strong>Closed sales:</strong> ' + closedSalesCount + '</p>' +
-        '<p><strong>Total sales amount:</strong> $' + closedSalesTotal + '</p>' +
+        '<p class="report-line"><strong>Total contacts:</strong> ' + totalContacts + '</p>' +
+        '<p class="report-line"><strong>Calls made / worked:</strong> ' + callsMade + '</p>' +
+        '<p class="report-line"><strong>Calls answered:</strong> ' + callsAnswered + '</p>' +
+        '<p class="report-line"><strong>No answers:</strong> ' + noAnswer + '</p>' +
+        '<p class="report-line"><strong>Callbacks:</strong> ' + callbacks + '</p>' +
+        '<p class="report-line"><strong>Emails sent:</strong> ' + emailsSent + '</p>' +
+        '<p class="report-line"><strong>Closed sales:</strong> ' + closedSalesCount + '</p>' +
+        '<p class="report-line"><strong>Total sales amount:</strong> $' + closedSalesTotal + '</p>' +
         '<h3>Closed Sales</h3>' +
-        '<ul>' + closedSalesHtml + '</ul>' +
+        '<ul class="report-list">' + closedSalesHtml + '</ul>' +
         '<h3>Email Sent Follow Ups</h3>' +
-        '<ul>' + emailsSentHtml + '</ul>' +
-        '<button onclick="window.print()">Print / Save as PDF</button>';
+        '<ul class="report-list">' + emailsSentHtml + '</ul>' +
+        '<div class="no-print" style="margin-top: 20px;">' +
+            '<button onclick="backToCallQueue()">Back to Call Queue</button>' +
+            '<button onclick="window.print()">Print / Save as PDF</button>' +
+        '</div>';
 }
 
 async function addDonor() {
@@ -447,6 +579,8 @@ async function addDonor() {
     const business_name = document.getElementById('business_name').value;
     const contact_name = document.getElementById('contact_name').value;
     const phone = document.getElementById('phone').value;
+    const office_phone = document.getElementById('office_phone').value;
+    const email = document.getElementById('email').value;
     const location = document.getElementById('location').value;
     const status = document.getElementById('status').value;
     const notes = document.getElementById('notes').value;
@@ -459,6 +593,8 @@ async function addDonor() {
                 business_name,
                 contact_name,
                 mobile: phone,
+                office_phone,
+                email,
                 location,
                 status,
                 notes
@@ -477,6 +613,8 @@ async function addDonor() {
         document.getElementById('business_name').value = '';
         document.getElementById('contact_name').value = '';
         document.getElementById('phone').value = '';
+        document.getElementById('office_phone').value = '';
+        document.getElementById('email').value = '';
         document.getElementById('location').value = '';
         document.getElementById('status').value = '';
         document.getElementById('notes').value = '';
