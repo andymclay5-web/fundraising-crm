@@ -63,12 +63,8 @@ input, textarea, select {
     font-size: 12px;
 }
 
-.small-input {
-    width: 80px;
-}
-
 .medium-input {
-    width: 120px;
+    width: 115px;
 }
 
 .email-input {
@@ -76,18 +72,18 @@ input, textarea, select {
 }
 
 .location-cell {
-    width: 85px;
-    max-width: 85px;
+    width: 75px;
+    max-width: 75px;
     font-size: 12px;
 }
 
 .status-select {
-    width: 105px;
+    width: 100px;
     font-size: 12px;
 }
 
 .amount-input {
-    width: 65px;
+    width: 60px;
 }
 
 .notes-box {
@@ -216,13 +212,21 @@ const client = supabase.createClient(
 
 let currentFilter = 'callQueue';
 
-function setFilter(filterName) {
-    currentFilter = filterName;
-
+function showDashboard() {
     document.getElementById('reportBox').style.display = 'none';
     document.getElementById('addDonorBox').style.display = 'block';
     document.getElementById('crmTable').style.display = 'table';
+}
 
+function showReportOnly() {
+    document.getElementById('addDonorBox').style.display = 'none';
+    document.getElementById('crmTable').style.display = 'none';
+    document.getElementById('reportBox').style.display = 'block';
+}
+
+function setFilter(filterName) {
+    currentFilter = filterName;
+    showDashboard();
     loadDonors();
 }
 
@@ -548,10 +552,7 @@ async function showReport() {
 
     const reportBox = document.getElementById('reportBox');
 
-    document.getElementById('addDonorBox').style.display = 'none';
-    document.getElementById('crmTable').style.display = 'none';
-
-    reportBox.style.display = 'block';
+    showReportOnly();
 
     reportBox.innerHTML =
         '<h2>Fundraising Report</h2>' +
