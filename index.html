@@ -346,6 +346,11 @@ async function updatePhoneNotes(id, phone_notes) {
     }
 }
     async function showReport() {
+        const emailsSentList = data.filter(donor =>
+    donor.status === 'Email Sent'
+);
+
+const campaignCode = '1A2601';
 
     const { data, error } = await client
         .from('donors')
@@ -404,18 +409,32 @@ async function updatePhoneNotes(id, phone_notes) {
         <p><strong>Closed sales:</strong> ${closedSalesCount}</p>
         <p><strong>Total sales amount:</strong> $${closedSalesTotal}</p>
 
-        <h3>Closed Sales</h3>
-        <ul>
-            ${closedSales.map(donor => `
-                <li>
-                    ${donor.card_id || ''} —
-                    ${donor.business_name || ''} —
-                    ${donor.contact_name || ''} —
-                    ${donor.email || ''} —
-                    $${donor.suggested_ask || 0}
-                </li>
-            `).join('')}
-        </ul>
+       <h3>Closed Sales</h3>
+<ul>
+    ${closedSales.map((donor, index) => `
+        <li>
+            ID: ${donor.card_id || ''} —
+            Amount: $${donor.suggested_ask || 0} —
+            Campaign: ${campaignCode} —
+            Sale #: ${index + 1} —
+            Contact: ${donor.contact_name || ''} —
+            Email: ${donor.email || ''}
+        </li>
+    `).join('')}
+</ul>
+
+<h3>Email Sent Follow Ups</h3>
+<ul>
+    ${emailsSentList.map(donor => `
+        <li>
+            ID: ${donor.card_id || ''} —
+            Business: ${donor.business_name || ''} —
+            Contact: ${donor.contact_name || ''} —
+            Amount: $${donor.suggested_ask || 0} —
+            Follow-up Date: ${donor.callback_date || ''}
+        </li>
+    `).join('')}
+</ul>
 
         <button onclick="window.print()">Print / Save as PDF</button>
     `;
