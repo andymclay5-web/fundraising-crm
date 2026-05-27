@@ -1,35 +1,36 @@
 <!DOCTYPE html>
-
 <html>
-
 <head>
-
 <title>Fundraising CRM Cloud Dashboard LIVE</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
 <style>
-
 body {
     font-family: Arial, sans-serif;
     background: #f4f4f4;
-    padding: 20px;
+    padding: 14px;
 }
 
 h1 {
     color: #222;
+    margin-bottom: 10px;
+}
+
+h2 {
+    margin-top: 0;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
     background: white;
-    font-size: 13px;
+    font-size: 12px;
 }
 
 th, td {
     border: 1px solid #ccc;
-    padding: 6px;
+    padding: 5px;
     text-align: left;
     vertical-align: top;
 }
@@ -37,18 +38,6 @@ th, td {
 th {
     background: #1f4e79;
     color: white;
-}
-
-.hot {
-    background: #ffd6d6;
-}
-
-.warm {
-    background: #fff4cc;
-}
-
-.cold {
-    background: #ddeeff;
 }
 
 button {
@@ -63,32 +52,97 @@ input, textarea, select {
     font-size: 12px;
 }
 
-.medium-input {
-    width: 115px;
+.top-bar {
+    margin-bottom: 12px;
+}
+
+.form-row {
+    margin-bottom: 8px;
+}
+
+.form-row input,
+.form-row textarea,
+.form-row select {
+    width: 95%;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.form-box {
+    padding: 12px;
+    border: 1px solid #ccc;
+    background: white;
+}
+
+.id-cell {
+    width: 55px;
+    max-width: 55px;
+}
+
+.business-cell {
+    width: 140px;
+    max-width: 140px;
+}
+
+.contact-cell {
+    width: 110px;
+    max-width: 110px;
+}
+
+.phone-cell {
+    width: 105px;
+    max-width: 105px;
 }
 
 .email-input {
-    width: 165px;
+    width: 140px;
 }
 
 .location-cell {
-    width: 75px;
-    max-width: 75px;
-    font-size: 12px;
+    width: 60px;
+    max-width: 60px;
+    font-size: 11px;
 }
 
 .status-select {
-    width: 100px;
-    font-size: 12px;
+    width: 92px;
+    font-size: 11px;
 }
 
 .amount-input {
-    width: 60px;
+    width: 55px;
+}
+
+.sales-history-cell {
+    width: 110px;
+    max-width: 110px;
+    font-size: 11px;
 }
 
 .notes-box {
-    width: 340px;
-    min-height: 120px;
+    width: 290px;
+    min-height: 100px;
+}
+
+.date-input {
+    width: 105px;
+}
+
+.small-input {
+    width: 80px;
+}
+
+.report-line {
+    margin-bottom: 6px;
+}
+
+.report-list li {
+    margin-bottom: 7px;
 }
 
 #reportBox {
@@ -99,12 +153,9 @@ input, textarea, select {
     display: none;
 }
 
-.report-line {
-    margin-bottom: 8px;
-}
-
-.report-list li {
-    margin-bottom: 8px;
+#searchBox {
+    width: 280px;
+    padding: 6px;
 }
 
 @media print {
@@ -115,7 +166,7 @@ input, textarea, select {
 
     h1,
     #topButtons,
-    #addDonorBox,
+    #formArea,
     #crmTable {
         display: none !important;
     }
@@ -131,95 +182,151 @@ input, textarea, select {
         display: none !important;
     }
 }
-
 </style>
-
 </head>
 
 <body>
 
 <h1>Fundraising CRM Dashboard live</h1>
 
-<div id="topButtons" style="margin-bottom: 15px;">
+<div id="topButtons" class="top-bar">
     <button onclick="setFilter('callQueue')">Call Queue</button>
     <button onclick="setFilter('callbacks')">Callbacks</button>
     <button onclick="setFilter('email')">Email Follow Up</button>
     <button onclick="setFilter('noAnswer')">No Answer</button>
+    <button onclick="setFilter('alreadyCalled')">Already Called</button>
     <button onclick="setFilter('closedSales')">Closed Sales</button>
     <button onclick="setFilter('all')">All Contacts</button>
-    <button onclick="showReport()">Report</button>
+    <button onclick="showDailyReport()">Daily Report</button>
+    <button onclick="showPayCycleReport()">Pay Cycle Report</button>
+    <button onclick="showCampaignReport()">Campaign Report</button>
+</div>
+
+<div class="top-bar">
+    <input id="searchBox" placeholder="Search ID, business, contact, phone, email, notes..." oninput="searchContacts()">
+    <button onclick="clearSearch()">Clear Search</button>
 </div>
 
 <div id="reportBox"></div>
 
-<div id="addDonorBox" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; background: white;">
-    <h2>Add Donor</h2>
+<div id="formArea" class="form-grid">
 
-    <input id="card_id" placeholder="Card / PCL ID"><br><br>
+    <div class="form-box">
+        <h2>Add New Contact</h2>
 
-    <input id="business_name" placeholder="Business Name"><br><br>
+        <div class="form-row"><input id="card_id" placeholder="Card / PCL ID"></div>
+        <div class="form-row"><input id="business_name" placeholder="Business Name"></div>
+        <div class="form-row"><input id="contact_name" placeholder="Contact Name"></div>
+        <div class="form-row"><input id="phone" placeholder="Mobile"></div>
+        <div class="form-row"><input id="office_phone" placeholder="Main Number"></div>
+        <div class="form-row"><input id="email" placeholder="Email"></div>
+        <div class="form-row"><input id="location" placeholder="Location"></div>
+        <div class="form-row"><input id="status" placeholder="Status"></div>
+        <div class="form-row"><textarea id="notes" placeholder="Notes"></textarea></div>
 
-    <input id="contact_name" placeholder="Contact Name"><br><br>
+        <button onclick="addDonor()">Add Donor</button>
+    </div>
 
-    <input id="phone" placeholder="Mobile"><br><br>
+    <div class="form-box">
+        <h2>Edit Contact</h2>
 
-    <input id="office_phone" placeholder="Main Number"><br><br>
+        <div class="form-row">
+            <input id="edit_lookup" placeholder="Enter ID or business name to load">
+            <button onclick="loadContactForEdit()">Load Contact</button>
+        </div>
 
-    <input id="email" placeholder="Email"><br><br>
+        <input type="hidden" id="edit_id">
 
-    <input id="location" placeholder="Location"><br><br>
+        <div class="form-row"><input id="edit_card_id" placeholder="Card / PCL ID"></div>
+        <div class="form-row"><input id="edit_business_name" placeholder="Business Name"></div>
+        <div class="form-row"><input id="edit_contact_name" placeholder="Contact Name"></div>
+        <div class="form-row"><input id="edit_mobile" placeholder="Mobile"></div>
+        <div class="form-row"><input id="edit_office_phone" placeholder="Main Number"></div>
+        <div class="form-row"><input id="edit_email" placeholder="Email"></div>
+        <div class="form-row"><input id="edit_location" placeholder="Location"></div>
+        <div class="form-row"><input id="edit_amount" placeholder="Amount" type="number"></div>
+        <div class="form-row"><input id="edit_sale_number" placeholder="Sale Number" type="number"></div>
+        <div class="form-row">
+            <select id="edit_sale_type">
+                <option value="">Sale Type</option>
+                <option>Business Sale</option>
+                <option>Personal Donation</option>
+            </select>
+        </div>
+        <div class="form-row"><input id="edit_campaign_code" placeholder="Campaign Code"></div>
+        <div class="form-row"><input id="edit_last_any_sale_year" placeholder="Last Any Sale Year" type="number"></div>
+        <div class="form-row"><input id="edit_last_autism_sale_year" placeholder="Last Autism Sale Year" type="number"></div>
+        <div class="form-row"><textarea id="edit_sales_history" placeholder="Sales History"></textarea></div>
+        <div class="form-row"><textarea id="edit_notes" placeholder="Notes"></textarea></div>
 
-    <input id="status" placeholder="Status"><br><br>
+        <button onclick="saveContactChanges()">Save Contact Changes</button>
+        <button onclick="clearEditForm()">Clear Edit Form</button>
+    </div>
 
-    <textarea id="notes" placeholder="Notes"></textarea><br><br>
-
-    <button onclick="addDonor()">Add Donor</button>
 </div>
 
 <table id="crmTable">
-
 <thead>
 <tr>
 <th>ID</th>
 <th>Business</th>
 <th>Contact</th>
 <th>Mobile</th>
-<th>Main Number</th>
+<th>Main</th>
 <th>Email</th>
 <th>Location</th>
 <th>Status</th>
 <th>Amount</th>
-<th>Sales History</th>
+<th>History</th>
 <th>Notes</th>
-<th>Callback Date</th>
+<th>Callback</th>
+<th>Edit</th>
 </tr>
 </thead>
-
 <tbody id="donorTable"></tbody>
-
 </table>
 
 <script>
-
 const SUPABASE_URL = "https://ldkxgkigfbviyxlspxrl.supabase.co";
 
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxka3hna2lnZmJ2aXl4bHNweHJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MDQzNTgsImV4cCI6MjA5NTA4MDM1OH0.QuFqGtAdT85dVyF7Xs1pobhGb2I7o9D9ORTGk0T070s";
 
-const client = supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_KEY
-);
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const DEFAULT_CAMPAIGN_CODE = '1A2601';
+const PAY_CYCLE_START = '2026-06-08';
 
 let currentFilter = 'callQueue';
+let allDonors = [];
+
+function todayString() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return year + '-' + month + '-' + day;
+}
+
+function localDateString(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (isNaN(date.getTime())) {
+        return String(value).slice(0, 10);
+    }
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return year + '-' + month + '-' + day;
+}
 
 function showDashboard() {
     document.getElementById('reportBox').style.display = 'none';
-    document.getElementById('addDonorBox').style.display = 'block';
+    document.getElementById('formArea').style.display = 'grid';
     document.getElementById('crmTable').style.display = 'table';
 }
 
 function showReportOnly() {
-    document.getElementById('addDonorBox').style.display = 'none';
+    document.getElementById('formArea').style.display = 'none';
     document.getElementById('crmTable').style.display = 'none';
     document.getElementById('reportBox').style.display = 'block';
 }
@@ -227,19 +334,50 @@ function showReportOnly() {
 function setFilter(filterName) {
     currentFilter = filterName;
     showDashboard();
-    loadDonors();
+    renderDonors();
 }
 
 function backToCallQueue() {
     setFilter('callQueue');
 }
 
-async function loadDonors() {
+function clearSearch() {
+    document.getElementById('searchBox').value = '';
+    renderDonors();
+}
 
+function searchContacts() {
+    currentFilter = 'search';
+    showDashboard();
+    renderDonors();
+}
+
+function donorMatchesSearch(donor, term) {
+    const combined = [
+        donor.card_id,
+        donor.business_name,
+        donor.contact_name,
+        donor.mobile,
+        donor.office_phone,
+        donor.email,
+        donor.location,
+        donor.status,
+        donor.suggested_ask,
+        donor.sales_history,
+        donor.notes,
+        donor.callback_date,
+        donor.campaign_code,
+        donor.sale_type,
+        donor.sale_number
+    ].join(' ').toLowerCase();
+
+    return combined.includes(term.toLowerCase());
+}
+
+async function loadDonors() {
     const { data, error } = await client
         .from('donors')
-        .select('*')
-        .order('suggested_ask', { ascending: false });
+        .select('*');
 
     if (error) {
         console.log(error);
@@ -247,88 +385,110 @@ async function loadDonors() {
         return;
     }
 
-    let filteredData = data;
+    allDonors = data || [];
+    renderDonors();
+}
 
-    if (currentFilter === 'callQueue') {
-        filteredData = data.filter(donor =>
-            !donor.status || donor.status === 'Not Called'
-        );
+function getFilteredData() {
+    let filteredData = [...allDonors];
+
+    const searchTerm = document.getElementById('searchBox').value.trim();
+
+    if (searchTerm) {
+        filteredData = filteredData.filter(donor => donorMatchesSearch(donor, searchTerm));
+    } else {
+        if (currentFilter === 'callQueue') {
+            filteredData = filteredData.filter(donor =>
+                !donor.status || donor.status === 'Not Called'
+            );
+        }
+
+        if (currentFilter === 'callbacks') {
+            filteredData = filteredData.filter(donor =>
+                donor.status === 'Callback Requested'
+            );
+            filteredData.sort((a, b) =>
+                String(a.callback_date || '9999-12-31').localeCompare(String(b.callback_date || '9999-12-31'))
+            );
+            return filteredData;
+        }
+
+        if (currentFilter === 'email') {
+            filteredData = filteredData.filter(donor =>
+                donor.status === 'Email Sent'
+            );
+        }
+
+        if (currentFilter === 'noAnswer') {
+            filteredData = filteredData.filter(donor =>
+                donor.status === 'No Answer'
+            );
+        }
+
+        if (currentFilter === 'alreadyCalled') {
+            filteredData = filteredData.filter(donor =>
+                donor.status && donor.status !== 'Not Called'
+            );
+            filteredData.sort((a, b) =>
+                String(a.last_status_change || '').localeCompare(String(b.last_status_change || ''))
+            );
+            return filteredData;
+        }
+
+        if (currentFilter === 'closedSales') {
+            filteredData = filteredData.filter(donor =>
+                donor.status === 'Closed Sale'
+            );
+            filteredData.sort((a, b) => {
+                const saleA = Number(a.sale_number || 999999);
+                const saleB = Number(b.sale_number || 999999);
+                if (saleA !== saleB) return saleA - saleB;
+                return String(a.sale_date || '').localeCompare(String(b.sale_date || ''));
+            });
+            return filteredData;
+        }
+
+        if (currentFilter === 'all') {
+            filteredData = [...allDonors];
+        }
     }
 
-    if (currentFilter === 'callbacks') {
-        filteredData = data.filter(donor =>
-            donor.status === 'Callback Requested'
-        );
-    }
+    filteredData.sort((a, b) => Number(b.suggested_ask || 0) - Number(a.suggested_ask || 0));
 
-    if (currentFilter === 'email') {
-        filteredData = data.filter(donor =>
-            donor.status === 'Email Sent'
-        );
-    }
+    return filteredData;
+}
 
-    if (currentFilter === 'noAnswer') {
-        filteredData = data.filter(donor =>
-            donor.status === 'No Answer'
-        );
-    }
-
-    if (currentFilter === 'closedSales') {
-        filteredData = data.filter(donor =>
-            donor.status === 'Closed Sale'
-        );
-    }
-
-    if (currentFilter === 'all') {
-        filteredData = data;
-    }
-
+function renderDonors() {
     const donorTable = document.getElementById('donorTable');
-
     donorTable.innerHTML = '';
 
+    const filteredData = getFilteredData();
+
     filteredData.forEach(donor => {
-
-        let statusClass = '';
-
-        if (donor.status) {
-            statusClass = donor.status.toLowerCase();
-        }
+        const statusClass = donor.status ? donor.status.toLowerCase().replaceAll(' ', '-') : '';
 
         donorTable.innerHTML += `
             <tr class="${statusClass}">
-                <td>${donor.card_id || ''}</td>
+                <td class="id-cell">${donor.card_id || ''}</td>
 
-                <td>${donor.business_name || ''}</td>
+                <td class="business-cell">${donor.business_name || ''}</td>
 
-                <td>${donor.contact_name || ''}</td>
+                <td class="contact-cell">${donor.contact_name || ''}</td>
 
-                <td>
-                    <input
-                    value="${donor.mobile || ''}"
-                    onchange="updateMobile(${donor.id}, this.value)"
-                    class="medium-input"
-                    >
+                <td class="phone-cell">
+                    ${donor.mobile || ''}
                     <br>
                     <button onclick="window.location.href='tel:${donor.mobile || ''}'">Call Mobile</button>
                 </td>
 
-                <td>
-                    <input
-                    value="${donor.office_phone || ''}"
-                    onchange="updateOfficePhone(${donor.id}, this.value)"
-                    class="medium-input"
-                    >
+                <td class="phone-cell">
+                    ${donor.office_phone || ''}
                     <br>
                     <button onclick="window.location.href='tel:${donor.office_phone || ''}'">Call Main</button>
                 </td>
 
                 <td>
-                    <input
-                    value="${donor.email || ''}"
-                    onchange="updateEmail(${donor.id}, this.value)"
-                    class="email-input"
-                    >
+                    ${donor.email || ''}
                 </td>
 
                 <td class="location-cell">${donor.location || ''}</td>
@@ -355,12 +515,12 @@ async function loadDonors() {
                     >
                 </td>
 
-                <td>${donor.sales_history || ''}</td>
+                <td class="sales-history-cell">${donor.sales_history || ''}</td>
 
                 <td>
                     <textarea
                     onchange="updateNotes(${donor.id}, this.value)"
-                    rows="7"
+                    rows="6"
                     class="notes-box"
                     >${donor.notes || ''}</textarea>
                 </td>
@@ -370,8 +530,12 @@ async function loadDonors() {
                     type="date"
                     value="${donor.callback_date || ''}"
                     onchange="updateCallbackDate(${donor.id}, this.value)"
-                    style="width: 120px;"
+                    class="date-input"
                     >
+                </td>
+
+                <td>
+                    <button onclick="loadThisContact(${donor.id})">Edit</button>
                 </td>
             </tr>
         `;
@@ -381,45 +545,29 @@ async function loadDonors() {
 loadDonors();
 
 async function updateStatus(id, status) {
+    const updateData = {
+        status: status,
+        last_status_change: new Date().toISOString()
+    };
+
+    if (status === 'Closed Sale') {
+        updateData.sale_date = todayString();
+        updateData.campaign_code = DEFAULT_CAMPAIGN_CODE;
+        if (!updateData.sale_type) {
+            updateData.sale_type = 'Business Sale';
+        }
+    }
+
     const { error } = await client
         .from('donors')
-        .update({ status: status })
+        .update(updateData)
         .eq('id', id);
 
     if (error) {
         console.error('Status update failed:', error);
         alert('Failed to save status');
     } else {
-        console.log('Status updated');
-        loadDonors();
-    }
-}
-
-async function updateMobile(id, mobile) {
-    const { error } = await client
-        .from('donors')
-        .update({ mobile: mobile })
-        .eq('id', id);
-
-    if (error) {
-        console.error('Mobile update failed:', error);
-        alert('Failed to save mobile');
-    } else {
-        console.log('Mobile updated');
-    }
-}
-
-async function updateOfficePhone(id, office_phone) {
-    const { error } = await client
-        .from('donors')
-        .update({ office_phone: office_phone })
-        .eq('id', id);
-
-    if (error) {
-        console.error('Main number update failed:', error);
-        alert('Failed to save main number');
-    } else {
-        console.log('Main number updated');
+        await loadDonors();
     }
 }
 
@@ -432,8 +580,6 @@ async function updateNotes(id, notes) {
     if (error) {
         console.error('Notes update failed:', error);
         alert('Failed to save notes');
-    } else {
-        console.log('Notes updated');
     }
 }
 
@@ -446,8 +592,6 @@ async function updateCallbackDate(id, callback_date) {
     if (error) {
         console.error('Callback date update failed:', error);
         alert('Failed to save callback date');
-    } else {
-        console.log('Callback date updated');
     }
 }
 
@@ -460,86 +604,298 @@ async function updateSuggestedAsk(id, suggested_ask) {
     if (error) {
         console.error('Amount update failed:', error);
         alert('Failed to save amount');
-    } else {
-        console.log('Amount updated');
     }
 }
 
-async function updateEmail(id, email) {
-    const { error } = await client
-        .from('donors')
-        .update({ email: email })
-        .eq('id', id);
+function calculateColdCard(lastAnySaleYear, salesHistory) {
+    const year = Number(lastAnySaleYear || 0);
 
-    if (error) {
-        console.error('Email update failed:', error);
-        alert('Failed to save email');
-    } else {
-        console.log('Email updated');
+    if (year) {
+        return year <= 2020;
     }
+
+    if (!salesHistory || String(salesHistory).trim() === '') {
+        return true;
+    }
+
+    const years = String(salesHistory).match(/20\d{2}/g);
+    if (!years || years.length === 0) {
+        return false;
+    }
+
+    const latestYear = Math.max(...years.map(Number));
+    return latestYear <= 2020;
 }
 
-async function showReport() {
+function calculatePromotionEligible(lastAutismSaleYear) {
+    const year = Number(lastAutismSaleYear || 0);
+    if (!year) return true;
+    return year < 2023;
+}
 
-    const { data, error } = await client
-        .from('donors')
-        .select('*');
-
-    if (error) {
-        console.error('Report failed:', error);
-        alert('Could not load report');
+function loadThisContact(id) {
+    const donor = allDonors.find(item => item.id === id);
+    if (!donor) {
+        alert('Contact not found');
         return;
     }
 
-    const campaignCode = '1A2601';
+    fillEditForm(donor);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
-    const totalContacts = data.length;
+function fillEditForm(donor) {
+    document.getElementById('edit_id').value = donor.id || '';
+    document.getElementById('edit_card_id').value = donor.card_id || '';
+    document.getElementById('edit_business_name').value = donor.business_name || '';
+    document.getElementById('edit_contact_name').value = donor.contact_name || '';
+    document.getElementById('edit_mobile').value = donor.mobile || '';
+    document.getElementById('edit_office_phone').value = donor.office_phone || '';
+    document.getElementById('edit_email').value = donor.email || '';
+    document.getElementById('edit_location').value = donor.location || '';
+    document.getElementById('edit_amount').value = donor.suggested_ask || '';
+    document.getElementById('edit_sale_number').value = donor.sale_number || '';
+    document.getElementById('edit_sale_type').value = donor.sale_type || '';
+    document.getElementById('edit_campaign_code').value = donor.campaign_code || DEFAULT_CAMPAIGN_CODE;
+    document.getElementById('edit_last_any_sale_year').value = donor.last_any_sale_year || '';
+    document.getElementById('edit_last_autism_sale_year').value = donor.last_autism_sale_year || '';
+    document.getElementById('edit_sales_history').value = donor.sales_history || '';
+    document.getElementById('edit_notes').value = donor.notes || '';
+}
 
-    const callQueue = data.filter(donor =>
+function clearEditForm() {
+    document.getElementById('edit_id').value = '';
+    document.getElementById('edit_lookup').value = '';
+    document.getElementById('edit_card_id').value = '';
+    document.getElementById('edit_business_name').value = '';
+    document.getElementById('edit_contact_name').value = '';
+    document.getElementById('edit_mobile').value = '';
+    document.getElementById('edit_office_phone').value = '';
+    document.getElementById('edit_email').value = '';
+    document.getElementById('edit_location').value = '';
+    document.getElementById('edit_amount').value = '';
+    document.getElementById('edit_sale_number').value = '';
+    document.getElementById('edit_sale_type').value = '';
+    document.getElementById('edit_campaign_code').value = '';
+    document.getElementById('edit_last_any_sale_year').value = '';
+    document.getElementById('edit_last_autism_sale_year').value = '';
+    document.getElementById('edit_sales_history').value = '';
+    document.getElementById('edit_notes').value = '';
+}
+
+function loadContactForEdit() {
+    const lookup = document.getElementById('edit_lookup').value.trim().toLowerCase();
+
+    if (!lookup) {
+        alert('Enter an ID or business name');
+        return;
+    }
+
+    const donor = allDonors.find(item =>
+        String(item.card_id || '').toLowerCase() === lookup ||
+        String(item.business_name || '').toLowerCase().includes(lookup)
+    );
+
+    if (!donor) {
+        alert('No matching contact found');
+        return;
+    }
+
+    fillEditForm(donor);
+}
+
+async function saveContactChanges() {
+    const id = document.getElementById('edit_id').value;
+
+    if (!id) {
+        alert('Load a contact first');
+        return;
+    }
+
+    const salesHistory = document.getElementById('edit_sales_history').value;
+    const lastAnySaleYear = document.getElementById('edit_last_any_sale_year').value;
+    const lastAutismSaleYear = document.getElementById('edit_last_autism_sale_year').value;
+
+    const updateData = {
+        card_id: document.getElementById('edit_card_id').value,
+        business_name: document.getElementById('edit_business_name').value,
+        contact_name: document.getElementById('edit_contact_name').value,
+        mobile: document.getElementById('edit_mobile').value,
+        office_phone: document.getElementById('edit_office_phone').value,
+        email: document.getElementById('edit_email').value,
+        location: document.getElementById('edit_location').value,
+        suggested_ask: document.getElementById('edit_amount').value || null,
+        sale_number: document.getElementById('edit_sale_number').value || null,
+        sale_type: document.getElementById('edit_sale_type').value,
+        campaign_code: document.getElementById('edit_campaign_code').value || DEFAULT_CAMPAIGN_CODE,
+        last_any_sale_year: lastAnySaleYear || null,
+        last_autism_sale_year: lastAutismSaleYear || null,
+        sales_history: salesHistory,
+        notes: document.getElementById('edit_notes').value,
+        cold_card: calculateColdCard(lastAnySaleYear, salesHistory),
+        promotion_eligible: calculatePromotionEligible(lastAutismSaleYear)
+    };
+
+    const { error } = await client
+        .from('donors')
+        .update(updateData)
+        .eq('id', id);
+
+    if (error) {
+        console.error('Save contact failed:', error);
+        alert('Failed to save contact changes');
+    } else {
+        alert('Contact updated');
+        await loadDonors();
+    }
+}
+
+async function addDonor() {
+    const business_name = document.getElementById('business_name').value;
+    const salesHistory = '';
+
+    const { error } = await client
+        .from('donors')
+        .insert([
+            {
+                card_id: document.getElementById('card_id').value,
+                business_name,
+                contact_name: document.getElementById('contact_name').value,
+                mobile: document.getElementById('phone').value,
+                location: document.getElementById('location').value,
+                status: document.getElementById('status').value || 'Not Called',
+                notes: document.getElementById('notes').value,
+                campaign_code: DEFAULT_CAMPAIGN_CODE,
+                cold_card: true,
+                promotion_eligible: true
+            }
+        ]);
+
+    if (error) {
+        console.error('Add donor failed:', error);
+        alert('Failed to add donor');
+    } else {
+        alert('Donor added');
+        await loadDonors();
+
+        document.getElementById('card_id').value = '';
+        document.getElementById('business_name').value = '';
+        document.getElementById('contact_name').value = '';
+        document.getElementById('phone').value = '';
+        document.getElementById('location').value = '';
+        document.getElementById('status').value = '';
+        document.getElementById('notes').value = '';
+    }
+}
+
+function dateInRange(dateValue, startDate, endDate) {
+    if (!dateValue) return false;
+    const dateText = String(dateValue).slice(0, 10);
+    return dateText >= startDate && dateText <= endDate;
+}
+
+function getPayCycleRange() {
+    const today = new Date(todayString() + 'T00:00:00');
+    const base = new Date(PAY_CYCLE_START + 'T00:00:00');
+    const dayMs = 24 * 60 * 60 * 1000;
+    let diffDays = Math.floor((today - base) / dayMs);
+    let cycles = Math.floor(diffDays / 14);
+
+    if (diffDays < 0) {
+        cycles = Math.floor(diffDays / 14);
+    }
+
+    const start = new Date(base.getTime() + cycles * 14 * dayMs);
+    const end = new Date(start.getTime() + 13 * dayMs);
+
+    const toDateText = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return year + '-' + month + '-' + day;
+    };
+
+    return {
+        start: toDateText(start),
+        end: toDateText(end)
+    };
+}
+
+function buildReport(title, data, startDate, endDate, campaignOnly) {
+    let reportData = [...data];
+
+    if (campaignOnly) {
+        reportData = reportData.filter(donor =>
+            !donor.campaign_code || donor.campaign_code === DEFAULT_CAMPAIGN_CODE
+        );
+    }
+
+    let worked = reportData;
+
+    if (startDate && endDate) {
+        worked = reportData.filter(donor =>
+            dateInRange(donor.last_status_change, startDate, endDate) ||
+            dateInRange(donor.sale_date, startDate, endDate)
+        );
+    }
+
+    const callQueue = reportData.filter(donor =>
         !donor.status || donor.status === 'Not Called'
     ).length;
 
-    const noAnswer = data.filter(donor =>
+    const noAnswer = worked.filter(donor =>
         donor.status === 'No Answer'
     ).length;
 
-    const callbacks = data.filter(donor =>
+    const callbacks = worked.filter(donor =>
         donor.status === 'Callback Requested'
     ).length;
 
-    const emailsSentList = data.filter(donor =>
+    const emailsSentList = worked.filter(donor =>
         donor.status === 'Email Sent'
     );
 
-    const closedSales = data.filter(donor =>
+    const closedSales = worked.filter(donor =>
         donor.status === 'Closed Sale'
     );
 
-    const emailsSent = emailsSentList.length;
-    const closedSalesCount = closedSales.length;
+    closedSales.sort((a, b) => {
+        const saleA = Number(a.sale_number || 999999);
+        const saleB = Number(b.sale_number || 999999);
+        if (saleA !== saleB) return saleA - saleB;
+        return String(a.sale_date || '').localeCompare(String(b.sale_date || ''));
+    });
+
+    const coldCards = reportData.filter(donor =>
+        donor.cold_card === true || calculateColdCard(donor.last_any_sale_year, donor.sales_history)
+    );
+
+    const promotionCards = reportData.filter(donor =>
+        donor.promotion_eligible === true || calculatePromotionEligible(donor.last_autism_sale_year)
+    );
 
     const closedSalesTotal = closedSales.reduce((sum, donor) => {
         return sum + Number(donor.suggested_ask || 0);
     }, 0);
 
-    const callsMade = totalContacts - callQueue;
+    const callsMade = worked.length;
     const callsAnswered = callsMade - noAnswer;
 
     let closedSalesHtml = '';
-
     closedSales.forEach((donor, index) => {
         closedSalesHtml += '<li>' +
-            'ID: ' + (donor.card_id || '') +
+            'Sale #: ' + (donor.sale_number || (index + 1)) +
+            ' — ID: ' + (donor.card_id || '') +
             ' — Amount: $' + (donor.suggested_ask || 0) +
-            ' — Campaign: ' + campaignCode +
-            ' — Sale #: ' + (index + 1) +
+            ' — Campaign: ' + (donor.campaign_code || DEFAULT_CAMPAIGN_CODE) +
+            ' — Type: ' + (donor.sale_type || 'Business Sale') +
+            ' — Business: ' + (donor.business_name || '') +
             ' — Contact: ' + (donor.contact_name || '') +
             ' — Email: ' + (donor.email || '') +
             '</li>';
     });
 
     let emailsSentHtml = '';
-
     emailsSentList.forEach(donor => {
         emailsSentHtml += '<li>' +
             'ID: ' + (donor.card_id || '') +
@@ -550,80 +906,68 @@ async function showReport() {
             '</li>';
     });
 
-    const reportBox = document.getElementById('reportBox');
+    let coldCardsHtml = '';
+    coldCards.forEach(donor => {
+        coldCardsHtml += '<li>' +
+            'ID: ' + (donor.card_id || '') +
+            ' — ' + (donor.business_name || '') +
+            ' — Last any sale year: ' + (donor.last_any_sale_year || 'unknown') +
+            '</li>';
+    });
 
+    let promotionHtml = '';
+    promotionCards.forEach(donor => {
+        promotionHtml += '<li>' +
+            'ID: ' + (donor.card_id || '') +
+            ' — ' + (donor.business_name || '') +
+            ' — Last Autism sale year: ' + (donor.last_autism_sale_year || 'none/unknown') +
+            '</li>';
+    });
+
+    const reportBox = document.getElementById('reportBox');
     showReportOnly();
 
     reportBox.innerHTML =
-        '<h2>Fundraising Report</h2>' +
-        '<p class="report-line"><strong>Total contacts:</strong> ' + totalContacts + '</p>' +
+        '<h2>' + title + '</h2>' +
+        (startDate && endDate ? '<p><strong>Period:</strong> ' + startDate + ' to ' + endDate + '</p>' : '') +
+        '<p class="report-line"><strong>Total contacts:</strong> ' + reportData.length + '</p>' +
+        '<p class="report-line"><strong>Still in call queue:</strong> ' + callQueue + '</p>' +
         '<p class="report-line"><strong>Calls made / worked:</strong> ' + callsMade + '</p>' +
         '<p class="report-line"><strong>Calls answered:</strong> ' + callsAnswered + '</p>' +
         '<p class="report-line"><strong>No answers:</strong> ' + noAnswer + '</p>' +
         '<p class="report-line"><strong>Callbacks:</strong> ' + callbacks + '</p>' +
-        '<p class="report-line"><strong>Emails sent:</strong> ' + emailsSent + '</p>' +
-        '<p class="report-line"><strong>Closed sales:</strong> ' + closedSalesCount + '</p>' +
+        '<p class="report-line"><strong>Emails sent:</strong> ' + emailsSentList.length + '</p>' +
+        '<p class="report-line"><strong>Closed sales:</strong> ' + closedSales.length + '</p>' +
         '<p class="report-line"><strong>Total sales amount:</strong> $' + closedSalesTotal + '</p>' +
+        '<p class="report-line"><strong>Cold cards:</strong> ' + coldCards.length + '</p>' +
+        '<p class="report-line"><strong>Promotion eligible:</strong> ' + promotionCards.length + '</p>' +
         '<h3>Closed Sales</h3>' +
         '<ul class="report-list">' + closedSalesHtml + '</ul>' +
         '<h3>Email Sent Follow Ups</h3>' +
         '<ul class="report-list">' + emailsSentHtml + '</ul>' +
+        '<h3>Cold Cards</h3>' +
+        '<ul class="report-list">' + coldCardsHtml + '</ul>' +
+        '<h3>Promotion Eligible Cards</h3>' +
+        '<ul class="report-list">' + promotionHtml + '</ul>' +
         '<div class="no-print" style="margin-top: 20px;">' +
             '<button onclick="backToCallQueue()">Back to Call Queue</button>' +
             '<button onclick="window.print()">Print / Save as PDF</button>' +
         '</div>';
 }
 
-async function addDonor() {
-
-    const card_id = document.getElementById('card_id').value;
-    const business_name = document.getElementById('business_name').value;
-    const contact_name = document.getElementById('contact_name').value;
-    const phone = document.getElementById('phone').value;
-    const office_phone = document.getElementById('office_phone').value;
-    const email = document.getElementById('email').value;
-    const location = document.getElementById('location').value;
-    const status = document.getElementById('status').value;
-    const notes = document.getElementById('notes').value;
-
-    const { error } = await client
-        .from('donors')
-        .insert([
-            {
-                card_id,
-                business_name,
-                contact_name,
-                mobile: phone,
-                office_phone,
-                email,
-                location,
-                status,
-                notes
-            }
-        ]);
-
-    if (error) {
-        console.error('Add donor failed:', error);
-        alert('Failed to add donor');
-    } else {
-        alert('Donor added');
-
-        loadDonors();
-
-        document.getElementById('card_id').value = '';
-        document.getElementById('business_name').value = '';
-        document.getElementById('contact_name').value = '';
-        document.getElementById('phone').value = '';
-        document.getElementById('office_phone').value = '';
-        document.getElementById('email').value = '';
-        document.getElementById('location').value = '';
-        document.getElementById('status').value = '';
-        document.getElementById('notes').value = '';
-    }
+function showDailyReport() {
+    const today = todayString();
+    buildReport('Daily Fundraising Report', allDonors, today, today, false);
 }
 
+function showPayCycleReport() {
+    const range = getPayCycleRange();
+    buildReport('Pay Cycle Fundraising Report', allDonors, range.start, range.end, false);
+}
+
+function showCampaignReport() {
+    buildReport('Campaign Fundraising Report - ' + DEFAULT_CAMPAIGN_CODE, allDonors, null, null, true);
+}
 </script>
-
 </body>
-
 </html>
