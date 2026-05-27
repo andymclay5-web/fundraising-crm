@@ -882,16 +882,18 @@ function buildReport(title, data, startDate, endDate, campaignOnly) {
     const callsAnswered = callsMade - noAnswer;
 
     let closedSalesHtml = '';
+
     closedSales.forEach((donor, index) => {
+        const notesPreview = String(donor.notes || '').substring(0, 20);
+
         closedSalesHtml += '<li>' +
-            'Sale #: ' + (donor.sale_number || (index + 1)) +
-            ' — ID: ' + (donor.card_id || '') +
-            ' — Amount: $' + (donor.suggested_ask || 0) +
-            ' — Campaign: ' + (donor.campaign_code || DEFAULT_CAMPAIGN_CODE) +
-            ' — Type: ' + (donor.sale_type || 'Business Sale') +
+            'ID: ' + (donor.card_id || '') +
             ' — Business: ' + (donor.business_name || '') +
-            ' — Contact: ' + (donor.contact_name || '') +
+            ' — Amount: $' + (donor.suggested_ask || 0) +
+            ' — Sale #: ' + (donor.sale_number || (index + 1)) +
             ' — Email: ' + (donor.email || '') +
+            ' — Campaign: ' + (donor.campaign_code || DEFAULT_CAMPAIGN_CODE) +
+            ' — Notes: ' + notesPreview +
             '</li>';
     });
 
