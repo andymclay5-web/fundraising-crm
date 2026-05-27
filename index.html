@@ -277,6 +277,7 @@ input, textarea, select {
 <th>Location</th>
 <th>Status</th>
 <th>Amount</th>
+<th>PCL</th>
 <th>History</th>
 <th>Notes</th>
 <th>Callback</th>
@@ -512,17 +513,24 @@ function renderDonors() {
                     </select>
                 </td>
 
-                <td>
-                    <input
-                    type="number"
-                    value="${donor.suggested_ask || ''}"
-                    onchange="updateSuggestedAsk(${donor.id}, this.value)"
-                    class="amount-input"
-                    >
-                </td>
+               <td>
+    <input
+    type="number"
+    value="${donor.suggested_ask || ''}"
+    onchange="updateSuggestedAsk(${donor.id}, this.value)"
+    class="amount-input"
+    >
+</td>
 
-                <td class="sales-history-cell">${donor.sales_history || ''}</td>
+<td>
+    <input
+    type="checkbox"
+    ${donor.pcl_entered ? 'checked' : ''}
+    onchange="updatePclEntered(${donor.id}, this.checked)"
+    >
+</td>
 
+<td class="sales-history-cell">${donor.sales_history || ''}</td>
                 <td>
                     <textarea
                     onchange="updateNotes(${donor.id}, this.value)"
@@ -612,7 +620,19 @@ async function updateSuggestedAsk(id, suggested_ask) {
         alert('Failed to save amount');
     }
 }
+async function updatePclEntered(id, pcl_entered) {
+    const { error } = await client
+        .from('donors')
+        .update({ pcl_entered: pcl_entered })
+        .eq('id', id);
 
+    if (error) {
+        console.error('PCL entered update failed:', error);
+        alert('Failed to save PCL entered status');
+    } else {
+        console.log('PCL entered updated');
+    }
+}
 function calculateColdCard(lastAnySaleYear, salesHistory) {
     const year = Number(lastAnySaleYear || 0);
 
@@ -892,15 +912,17 @@ function buildReport(title, data, startDate, endDate, campaignOnly) {
     closedSales.forEach((donor, index) => {
         const notesPreview = String(donor.notes || '').substring(0, 20);
 
-        closedSalesHtml += '<li>' +
-            'ID: ' + (donor.card_id || '') +
-            ' — Business: ' + (donor.business_name || '') +
-            ' — Amount: $' + (donor.suggested_ask || 0) +
-            ' — Sale #: ' + (donor.sale_number || (index + 1)) +
-            ' — Email: ' + (donor.email || '') +
-            ' — Campaign: ' + (donor.campaign_code || DEFAULT_CAMPAIGN_CODE) +
-            ' — Notes: ' + notesPreview +
-            '</li>';
+       closedSalesHtml += '<li>' +
+    'ID: ' + (donor.card_id || '') +
+    ' — Business: ' + (donor.business_name || '') +
+    ' — Contact: ' + (donor.contact_name || '') +
+    ' — Amount: $' + (donor.suggested_ask || 0) +
+    ' — Sale #: ' + (donor.sale_number || (index + 1)) +
+   ' — Email: ' + (donor.email || '') +
+' — Campaign: ' + (donor.campaign_code || DEFAULT_CAMPAIGN_CODE) +
+' — PCL Entered: ' + (donor.pcl_entered ? 'Yes' : 'No') +
+' — Notes: ' + notesPreview +
+    '</li>';
     });
 
     let emailsSentHtml = '';
