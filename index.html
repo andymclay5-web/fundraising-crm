@@ -194,7 +194,7 @@ input, textarea, select {
     <button onclick="setFilter('callbacks')">Callbacks</button>
     <button onclick="setFilter('email')">Email Follow Up</button>
     <button onclick="setFilter('noAnswer')">No Answer</button>
-    <button onclick="setFilter('alreadyCalled')">Already Called</button>
+ <button onclick="setFilter('alreadyCalled')">Already Called Today</button>
     <button onclick="setFilter('closedSales')">Closed Sales</button>
     <button onclick="setFilter('all')">All Contacts</button>
     <button onclick="showDailyReport()">Daily Report</button>
@@ -425,15 +425,21 @@ function getFilteredData() {
             );
         }
 
-        if (currentFilter === 'alreadyCalled') {
-            filteredData = filteredData.filter(donor =>
-                donor.status && donor.status !== 'Not Called'
-            );
-            filteredData.sort((a, b) =>
-                String(a.last_status_change || '').localeCompare(String(b.last_status_change || ''))
-            );
-            return filteredData;
-        }
+       if (currentFilter === 'alreadyCalled') {
+    const today = todayString();
+
+    filteredData = filteredData.filter(donor =>
+        donor.status &&
+        donor.status !== 'Not Called' &&
+        localDateString(donor.last_status_change) === today
+    );
+
+    filteredData.sort((a, b) =>
+        String(a.last_status_change || '').localeCompare(String(b.last_status_change || ''))
+    );
+
+    return filteredData;
+}
 
         if (currentFilter === 'closedSales') {
             filteredData = filteredData.filter(donor =>
