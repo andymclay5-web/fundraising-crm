@@ -746,6 +746,9 @@ const promoBadge = donor.promotion_eligible === true
     ? '<br><span class="badge">promo</span>'
     : '';
         const checkBadge = isCheckDetails(donor) ? '<br><span class="badge badge-red">check</span>' : '';
+        const saleNumberBadge = donor.sale_number
+    ? '<br><span class="badge badge-green">Sale #' + escapeHtml(donor.sale_number) + '</span>'
+    : '';
         const enteredText = donor.pcl_entered ? 'Yes' : 'No';
         const enteredButton = isClosedSale(donor) && !donor.pcl_entered ? '<br><button class="success-button" onclick="updatePclEntered(' + donor.id + ', true)">Mark Entered</button>' : '';
 
@@ -755,7 +758,7 @@ const promoBadge = donor.promotion_eligible === true
 
                 <td class="campaign-cell">${campaignText}</td>
 
-                <td class="business-cell">${escapeHtml(donor.business_name || '')}${coldBadge}${promoBadge}${checkBadge}</td>
+              <td class="business-cell">${escapeHtml(donor.business_name || '')}${saleNumberBadge}${coldBadge}${promoBadge}${checkBadge}</td>
 
                 <td class="contact-cell">${escapeHtml(contactDisplay)}${saleContactBadge}</td>
 
@@ -852,15 +855,36 @@ async function callNumber(number, id) {
     await loadDonors();
 }
 async function getNextSaleNumber() {
-    const { data, error } = await client
-        .from('donors')
-        .select('sale_number')
-        .not('sale_number', 'is', null);
+    const { data: counterData, error: readError } = await client
+        .from('crm_sale_counter')
+        .select('last_sale_number')
+        .eq('id', 1)
+        .single();
 
-    if (error) {
-        console.error('Could not fetch sale numbers:', error);
+    if (readError) {
+        console.error('Could not read sale counter:', readError);
+        alert('Could not read sale counter. Run the crm_sale_counter SQL setup first.');
         return null;
     }
+
+    const nextNumber = Number(counterData.last_sale_number || 0) + 1;
+
+    const { error: updateError } = await client
+        .from('crm_sale_counter')
+        .update({
+            last_sale_number: nextNumber,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', 1);
+
+    if (updateError) {
+        console.error('Could not update sale counter:', updateError);
+        alert('Could not update sale counter.');
+        return null;
+    }
+
+    return nextNumber;
+}
 
     const numbers = (data || [])
         .map(row => Number(row.sale_number))
