@@ -845,6 +845,15 @@ function renderDonors() {
 loadDonors();
 
 async function markLastCalled(id) {
+    /*
+    Kept for future use only.
+
+    IMPORTANT:
+    Do not call this from the phone buttons.
+    Starting a phone call must NOT update last_called, last_status_change, or status,
+    because that moves the contact into worked/already-called lists before an outcome
+    has actually been chosen.
+    */
     const { error } = await client
         .from('donors')
         .update({ last_called: new Date().toISOString() })
@@ -859,9 +868,13 @@ async function callNumber(number, id) {
         return;
     }
 
-    await markLastCalled(id);
+    /*
+    Phone click only opens the dialler.
+    The contact stays visible in the current queue until you choose an outcome/status.
+    Status functions such as No Answer, Callback, Closed Sale, Check Details, etc.
+    are the only things that update last_called / last_status_change.
+    */
     window.location.href = 'tel:' + number;
-    await loadDonors();
 }
 
 async function getNextSaleNumber() {
