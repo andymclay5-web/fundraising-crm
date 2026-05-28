@@ -451,7 +451,7 @@ function normaliseStatus(status) {
 
 function isClosedSale(donor) {
     const status = normaliseStatus(donor.status);
-    return status === 'closed sale' || status === 'personal donation' || status.includes('closed sale') || status.includes('sale');
+    return status === 'closed sale' || status === 'personal donation';
 }
 
 function isNoStatus(donor) {
@@ -656,7 +656,7 @@ function getFilteredData() {
     if (currentFilter === 'promotion') {
         filteredData = filteredData.filter(donor =>
             isActionableForColdPromoList(donor) &&
-            (donor.promotion_eligible === true || calculatePromotionEligible(donor.last_autism_sale_year))
+            donor.promotion_eligible === true
         );
     }
 
@@ -738,19 +738,28 @@ function renderDonors() {
         const campaignText = getCampaignCode(donor) + '<br>' + escapeHtml(donor.campaign_area || '');
         const contactDisplay = getReportContactName(donor);
         const saleContactBadge = donor.sale_contact_name ? '<br><span class="badge badge-green">sale contact</span>' : '';
-const coldBadge = donor.cold_card === true
-    ? '<br><span class="badge badge-yellow">cold</span>'
-    : '';
 
-const promoBadge = donor.promotion_eligible === true
-    ? '<br><span class="badge">promo</span>'
-    : '';
-        const checkBadge = isCheckDetails(donor) ? '<br><span class="badge badge-red">check</span>' : '';
+        const coldBadge = donor.cold_card === true
+            ? '<br><span class="badge badge-yellow">cold</span>'
+            : '';
+
+        const promoBadge = donor.promotion_eligible === true
+            ? '<br><span class="badge">promo</span>'
+            : '';
+
+        const checkBadge = isCheckDetails(donor)
+            ? '<br><span class="badge badge-red">check</span>'
+            : '';
+
         const saleNumberBadge = donor.sale_number
-    ? '<br><span class="badge badge-green">Sale #' + escapeHtml(donor.sale_number) + '</span>'
-    : '';
+            ? '<br><span class="badge badge-green">Sale #' + escapeHtml(donor.sale_number) + '</span>'
+            : '';
+
         const enteredText = donor.pcl_entered ? 'Yes' : 'No';
-        const enteredButton = isClosedSale(donor) && !donor.pcl_entered ? '<br><button class="success-button" onclick="updatePclEntered(' + donor.id + ', true)">Mark Entered</button>' : '';
+
+        const enteredButton = isClosedSale(donor) && !donor.pcl_entered
+            ? '<br><button class="success-button" onclick="updatePclEntered(' + donor.id + ', true)">Mark Entered</button>'
+            : '';
 
         donorTable.innerHTML += `
             <tr class="${statusClass}">
@@ -758,7 +767,7 @@ const promoBadge = donor.promotion_eligible === true
 
                 <td class="campaign-cell">${campaignText}</td>
 
-              <td class="business-cell">${escapeHtml(donor.business_name || '')}${saleNumberBadge}${coldBadge}${promoBadge}${checkBadge}</td>
+                <td class="business-cell">${escapeHtml(donor.business_name || '')}${saleNumberBadge}${coldBadge}${promoBadge}${checkBadge}</td>
 
                 <td class="contact-cell">${escapeHtml(contactDisplay)}${saleContactBadge}</td>
 
@@ -854,6 +863,7 @@ async function callNumber(number, id) {
     window.location.href = 'tel:' + number;
     await loadDonors();
 }
+
 async function getNextSaleNumber() {
     const { data: counterData, error: readError } = await client
         .from('crm_sale_counter')
@@ -886,16 +896,6 @@ async function getNextSaleNumber() {
     return nextNumber;
 }
 
-    const numbers = (data || [])
-        .map(row => Number(row.sale_number))
-        .filter(num => !isNaN(num) && num > 0);
-
-    if (numbers.length === 0) {
-        return 1;
-    }
-
-    return Math.max(...numbers) + 1;
-}
 async function updateStatus(id, status) {
     const nowIso = new Date().toISOString();
     const today = todayString();
@@ -912,6 +912,14 @@ async function updateStatus(id, status) {
         updateData.sale_date = donor.sale_date || today;
         updateData.campaign_code = donor.campaign_code || (currentCampaignFilter !== 'all' ? currentCampaignFilter : DEFAULT_CAMPAIGN_CODE);
         updateData.sale_type = status === 'Personal Donation' ? 'Personal Donation' : (donor.sale_type || 'Business Sale');
+
+        if (!donor.sale_number) {
+            const nextSaleNumber = await getNextSaleNumber();
+
+            if (nextSaleNumber) {
+                updateData.sale_number = nextSaleNumber;
+            }
+        }
     }
 
     if (status === 'Email Sent') {
@@ -1020,7 +1028,6 @@ function calculateColdCard(lastAnySaleYear, salesHistory) {
 
     const years = history.match(/\b(19|20)\d{2}\b/g);
 
-    // Has some history text, but no year found = do not assume cold.
     if (!years || years.length === 0) {
         return false;
     }
@@ -1033,7 +1040,6 @@ function calculateColdCard(lastAnySaleYear, salesHistory) {
 function calculatePromotionEligible(lastAutismSaleYear) {
     const year = Number(lastAutismSaleYear || 0);
 
-    // Blank/unknown should not automatically show as promotion.
     if (!year) return false;
 
     return year < 2023;
@@ -1073,7 +1079,7 @@ function fillEditForm(donor) {
     document.getElementById('edit_last_autism_sale_year').value = donor.last_autism_sale_year || '';
     document.getElementById('edit_last_called_display').value = getLastCalledDisplay(donor.last_called || donor.last_status_change);
     document.getElementById('edit_cold_card').checked = donor.cold_card === true || calculateColdCard(donor.last_any_sale_year, donor.sales_history);
-    document.getElementById('edit_promotion_eligible').checked = donor.promotion_eligible === true || calculatePromotionEligible(donor.last_autism_sale_year);
+    document.getElementById('edit_promotion_eligible').checked = donor.promotion_eligible === true;
     document.getElementById('edit_pcl_entered').checked = donor.pcl_entered === true;
     document.getElementById('edit_check_details_reason').value = donor.check_details_reason || '';
     document.getElementById('edit_sales_history').value = donor.sales_history || '';
@@ -1231,7 +1237,7 @@ async function addDonor() {
                 campaign_year: document.getElementById('campaign_year').value || DEFAULT_CAMPAIGN_YEAR,
                 campaign_status: 'Active',
                 cold_card: true,
-                promotion_eligible: true,
+                promotion_eligible: false,
                 pcl_entered: false,
                 sales_history: salesHistory
             }
@@ -1356,7 +1362,7 @@ function buildReport(title, data, startDate, endDate, campaignOnly) {
     });
 
     const coldCardSales = closedSales.filter(donor => donor.cold_card === true || calculateColdCard(donor.last_any_sale_year, donor.sales_history));
-    const promotionSales = closedSales.filter(donor => donor.promotion_eligible === true || calculatePromotionEligible(donor.last_autism_sale_year));
+    const promotionSales = closedSales.filter(donor => donor.promotion_eligible === true);
 
     const closedSalesTotal = closedSales.reduce((sum, donor) => sum + Number(donor.suggested_ask || 0), 0);
     const callsMade = worked.length;
