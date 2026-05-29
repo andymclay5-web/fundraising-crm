@@ -275,7 +275,7 @@ input, textarea, select {
 </div>
 
 <div id="searchArea" class="top-bar">
-    <input id="searchBox" placeholder="Global search: ID, phone, business, contact, email, notes, campaign, charity, status..." oninput="searchContacts()">
+    <input id="searchBox" placeholder="Fast search: ID, business, contact, mobile, main phone..." oninput="searchContacts()">
     <button onclick="clearSearch()">Clear Search</button>
 </div>
 
@@ -395,7 +395,7 @@ input, textarea, select {
 <th>Entered</th>
 <th>History</th>
 <th>Notes</th>
-<th>Callback</th>
+<th>Next Date</th>
 <th>Edit</th>
 </tr>
 </thead>
@@ -417,6 +417,7 @@ const PAY_CYCLE_START = '2026-06-08';
 let currentFilter = 'callQueue';
 let currentCampaignFilter = 'all';
 let allDonors = [];
+let searchTimer = null;
 
 function todayString() {
     const now = new Date();
@@ -527,37 +528,51 @@ function clearSearch() {
 function searchContacts() {
     currentFilter = 'search';
     showDashboard();
-    renderDonors();
+
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+        renderDonors();
+    }, 120);
 }
 
 function donorMatchesSearch(donor, term) {
-    const combined = [
+    /*
+    Fast search only.
+
+    Searches the fields Andy actually needs while calling:
+    - card ID
+    - business name
+    - contact / sale contact
+    - mobile
+    - main/office phone
+
+    This avoids the browser wait prompt caused by searching every large notes/history/email/status field
+    on every keystroke.
+    */
+    const cleanTerm = String(term || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const digitsOnly = cleanTerm.replace(/\D/g, '');
+
+    if (!cleanTerm) return true;
+
+    const searchableText = [
         donor.card_id,
         donor.business_name,
         donor.contact_name,
         donor.sale_contact_name,
         donor.mobile,
-        donor.office_phone,
-        donor.email,
-        donor.location,
-        donor.status,
-        donor.suggested_ask,
-        donor.sales_history,
-        donor.notes,
-        donor.check_details_reason,
-        donor.callback_date,
-        donor.campaign_code,
-        donor.campaign_area,
-        donor.campaign_year,
-        donor.campaign_status,
-        donor.charity_name,
-        donor.sale_type,
-        donor.sale_number,
-        donor.last_called,
-        donor.last_status_change
+        donor.office_phone
     ].join(' ').toLowerCase();
 
-    return combined.includes(term.toLowerCase());
+    const searchableDigits = [
+        donor.card_id,
+        donor.mobile,
+        donor.office_phone
+    ].join(' ').replace(/\D/g, '');
+
+    if (searchableText.includes(cleanTerm)) return true;
+    if (digitsOnly && searchableDigits.includes(digitsOnly)) return true;
+
+    return false;
 }
 
 function populateCampaignFilter() {
@@ -637,10 +652,14 @@ function getFilteredData() {
 
     if (currentFilter === 'email') {
         filteredData = filteredData.filter(donor => isEmailFollowUp(donor));
+        filteredData.sort(sortByNextActionDateThenBusiness);
+        return filteredData;
     }
 
     if (currentFilter === 'noAnswer') {
         filteredData = filteredData.filter(donor => normaliseStatus(donor.status) === 'no answer');
+        filteredData.sort(sortByNextActionDateThenBusiness);
+        return filteredData;
     }
 
     if (currentFilter === 'alreadyCalled') {
@@ -651,6 +670,8 @@ function getFilteredData() {
 
     if (currentFilter === 'checkDetails') {
         filteredData = filteredData.filter(donor => isCheckDetails(donor));
+        filteredData.sort(sortByNextActionDateThenBusiness);
+        return filteredData;
     }
 
     if (currentFilter === 'promotion') {
@@ -699,6 +720,26 @@ function getLastCalledDisplay(value) {
     }
 
     return date.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short' });
+}
+
+function getNextActionDate(donor) {
+    /*
+    callback_date is now a general next-action date:
+    - callback date
+    - email follow-up date
+    - try-again date
+
+    It does not automatically change status.
+    It is only used to order lists, with the nearest date at the top.
+    */
+    return String(donor.callback_date || '9999-12-31');
+}
+
+function sortByNextActionDateThenBusiness(a, b) {
+    const dateCompare = getNextActionDate(a).localeCompare(getNextActionDate(b));
+    if (dateCompare !== 0) return dateCompare;
+
+    return String(a.business_name || '').localeCompare(String(b.business_name || ''));
 }
 
 function getReportContactName(donor) {
@@ -969,23 +1010,28 @@ async function updateNotes(id, notes) {
 }
 
 async function updateCallbackDate(id, callback_date) {
-    const updateData = { callback_date: callback_date };
-    if (callback_date) {
-        updateData.status = 'Callback Requested';
-        updateData.last_status_change = new Date().toISOString();
-        updateData.last_called = new Date().toISOString();
-    }
+    /*
+    callback_date is now a neutral next-action/follow-up date.
 
+    It does NOT change status to Callback Requested.
+    It does NOT update last_called or last_status_change.
+    It does NOT move the contact out of the current list.
+
+    Use the status dropdown when you actually want to move the contact
+    to Callback Requested, Email Sent, No Answer, etc.
+    */
     const { error } = await client
         .from('donors')
-        .update(updateData)
+        .update({ callback_date: callback_date || null })
         .eq('id', id);
 
     if (error) {
-        console.error('Callback date update failed:', error);
-        alert('Failed to save callback date');
+        console.error('Next-action date update failed:', error);
+        alert('Failed to save date');
     } else {
-        await loadDonors();
+        const donor = allDonors.find(item => item.id === id);
+        if (donor) donor.callback_date = callback_date || null;
+        renderDonors();
     }
 }
 
