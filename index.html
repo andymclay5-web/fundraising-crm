@@ -449,7 +449,50 @@ function escapeHtml(value) {
 function normaliseStatus(status) {
     return String(status || '').trim().toLowerCase();
 }
+function hasCardId(donor) {
+    return String(donor.card_id || '').trim() !== '';
+}
 
+function isCallQueueContact(donor) {
+    /*
+    ID-first workflow:
+    Show every active/unworked card with a PCL/card ID in Call Queue,
+    even if it has no mobile, no main number, no email, no business name,
+    or no contact name.
+
+    If the ID is wrong/nonexistent/wrong business, Andy deletes it.
+    If the ID works, Andy updates the details from PCL.
+    Temporary duplicates are okay and can be fixed later.
+    */
+
+    const status = normaliseStatus(donor.status);
+
+    const workedOrFinal =
+        status === 'no answer' ||
+        status === 'callback requested' ||
+        status.includes('callback') ||
+        status.includes('call back') ||
+        status === 'email sent' ||
+        status.includes('email') ||
+        status === 'follow up' ||
+        status === 'interested' ||
+        status === 'check details' ||
+        status === 'check number' ||
+        status.includes('check detail') ||
+        status.includes('check number') ||
+        status === 'closed sale' ||
+        status === 'personal donation' ||
+        status === 'no' ||
+        status === 'not interested' ||
+        status.includes('not interested') ||
+        status.includes('declined') ||
+        status.includes('refused');
+
+    if (!hasCardId(donor)) return false;
+    if (workedOrFinal) return false;
+
+    return true;
+}
 function hasCardId(donor) {
     return String(donor.card_id || '').trim() !== '';
 }
@@ -671,15 +714,18 @@ function getFilteredData() {
 
     filteredData = applyCampaignFilter(filteredData);
 
-    if (currentFilter === 'callQueue') {
-        filteredData = filteredData.filter(donor => isCallQueueContact(donor));
-        filteredData.sort((a, b) => {
-            const askCompare = Number(b.suggested_ask || 0) - Number(a.suggested_ask || 0);
-            if (askCompare !== 0) return askCompare;
-            return String(a.card_id || '').localeCompare(String(b.card_id || ''));
-        });
-        return filteredData;
-    }
+   if (currentFilter === 'callQueue') {
+    filteredData = filteredData.filter(donor => isCallQueueContact(donor));
+
+    filteredData.sort((a, b) => {
+        const askCompare = Number(b.suggested_ask || 0) - Number(a.suggested_ask || 0);
+        if (askCompare !== 0) return askCompare;
+
+        return String(a.card_id || '').localeCompare(String(b.card_id || ''));
+    });
+
+    return filteredData;
+}
 
     if (currentFilter === 'callbacks') {
         filteredData = filteredData.filter(donor => isCallback(donor));
