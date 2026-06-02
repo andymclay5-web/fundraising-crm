@@ -255,11 +255,11 @@ input, textarea, select {
     <select id="campaignFilter" onchange="setCampaignFilter(this.value)">
         <option value="all">All Campaigns</option>
     </select>
-    <span class="help-text">Calling lists are campaign-filtered. Global search ignores this and searches everything.</span>
+    <span class="help-text">Call Queue shows every active card ID, even if phone/email/business details are missing. Use ID in PCL, update good matches, delete bad IDs.</span>
 </div>
 
 <div id="topButtons" class="top-bar">
-    <button onclick="setFilter('callQueue')">Call Queue</button>
+    <button onclick="setFilter('callQueue')">Call Queue / Not Called</button>
     <button onclick="setFilter('callbacks')">Callbacks</button>
     <button onclick="setFilter('email')">Email Follow Up</button>
     <button onclick="setFilter('noAnswer')">No Answer</button>
@@ -405,7 +405,7 @@ input, textarea, select {
 <script>
 const SUPABASE_URL = "https://ldkxgkigfbviyxlspxrl.supabase.co";
 
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxka3hna2lnZmJ2aXl4bHNweHJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MDQzNTgsImV4cCI6MjA5NTA4MDM1OH0.QuFqGtAdT85dVyF7Xs1pobhGb2I7o9D9ORTGk0T070s";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInJlZiI6Imxka3hna2lnZmJ2aXl4bHNweHJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MDQzNTgsImV4cCI6MjA5NTA4MDM1OH0.QuFqGtAdT85dVyF7Xs1pobhGb2I7o9D9ORTGk0T070s";
 
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -450,6 +450,10 @@ function normaliseStatus(status) {
     return String(status || '').trim().toLowerCase();
 }
 
+function hasCardId(donor) {
+    return String(donor.card_id || '').trim() !== '';
+}
+
 function isClosedSale(donor) {
     const status = normaliseStatus(donor.status);
     return status === 'closed sale' || status === 'personal donation';
@@ -473,6 +477,49 @@ function isEmailFollowUp(donor) {
 function isCheckDetails(donor) {
     const status = normaliseStatus(donor.status);
     return status === 'check details' || status === 'check number' || status.includes('check detail') || status.includes('check number');
+}
+
+function isNoAnswer(donor) {
+    return normaliseStatus(donor.status) === 'no answer';
+}
+
+function isAlreadyWorkedStatus(donor) {
+    const status = normaliseStatus(donor.status);
+
+    return isClosedSale(donor) ||
+        isNoStatus(donor) ||
+        isCallback(donor) ||
+        isEmailFollowUp(donor) ||
+        isCheckDetails(donor) ||
+        isNoAnswer(donor) ||
+        status === 'follow up' ||
+        status === 'interested';
+}
+
+function isCallQueueContact(donor) {
+    /*
+    Andy's ID-first workflow.
+
+    Call Queue / Not Called must include every active unworked card with a PCL/card ID,
+    even if it has:
+    - no mobile
+    - no main number
+    - no email
+    - no business name
+    - no contact name
+
+    Workflow:
+    - Use the ID in PCL.
+    - If ID does not exist or belongs to another business, delete the contact.
+    - If ID opens correctly, update/match the details.
+    - Temporary duplicates are okay; dedupe later.
+    */
+
+    if (!hasCardId(donor)) return false;
+    if (isAlreadyWorkedStatus(donor)) return false;
+    if (donor.pcl_entered === true && isClosedSale(donor)) return false;
+
+    return true;
 }
 
 function isActionableForColdPromoList(donor) {
@@ -536,19 +583,6 @@ function searchContacts() {
 }
 
 function donorMatchesSearch(donor, term) {
-    /*
-    Fast search only.
-
-    Searches the fields Andy actually needs while calling:
-    - card ID
-    - business name
-    - contact / sale contact
-    - mobile
-    - main/office phone
-
-    This avoids the browser wait prompt caused by searching every large notes/history/email/status field
-    on every keystroke.
-    */
     const cleanTerm = String(term || '').toLowerCase().replace(/\s+/g, ' ').trim();
     const digitsOnly = cleanTerm.replace(/\D/g, '');
 
@@ -638,10 +672,13 @@ function getFilteredData() {
     filteredData = applyCampaignFilter(filteredData);
 
     if (currentFilter === 'callQueue') {
-        filteredData = filteredData.filter(donor => {
-            const status = normaliseStatus(donor.status);
-            return !status || status === 'not called';
+        filteredData = filteredData.filter(donor => isCallQueueContact(donor));
+        filteredData.sort((a, b) => {
+            const askCompare = Number(b.suggested_ask || 0) - Number(a.suggested_ask || 0);
+            if (askCompare !== 0) return askCompare;
+            return String(a.card_id || '').localeCompare(String(b.card_id || ''));
         });
+        return filteredData;
     }
 
     if (currentFilter === 'callbacks') {
@@ -723,15 +760,6 @@ function getLastCalledDisplay(value) {
 }
 
 function getNextActionDate(donor) {
-    /*
-    callback_date is now a general next-action date:
-    - callback date
-    - email follow-up date
-    - try-again date
-
-    It does not automatically change status.
-    It is only used to order lists, with the nearest date at the top.
-    */
     return String(donor.callback_date || '9999-12-31');
 }
 
@@ -780,6 +808,14 @@ function renderDonors() {
         const contactDisplay = getReportContactName(donor);
         const saleContactBadge = donor.sale_contact_name ? '<br><span class="badge badge-green">sale contact</span>' : '';
 
+        const idOnlyBadge = hasCardId(donor) && !donor.business_name && !donor.mobile && !donor.office_phone
+            ? '<br><span class="badge badge-yellow">ID only</span>'
+            : '';
+
+        const noPhoneBadge = hasCardId(donor) && !donor.mobile && !donor.office_phone
+            ? '<br><span class="badge badge-yellow">use ID in PCL</span>'
+            : '';
+
         const coldBadge = donor.cold_card === true
             ? '<br><span class="badge badge-yellow">cold</span>'
             : '';
@@ -802,26 +838,34 @@ function renderDonors() {
             ? '<br><button class="success-button" onclick="updatePclEntered(' + donor.id + ', true)">Mark Entered</button>'
             : '';
 
+        const mobileButton = donor.mobile
+            ? '<button onclick="callNumber(\'' + escapeHtml(donor.mobile || '') + '\', ' + donor.id + ')">Call Mobile</button>'
+            : '<span class="badge">No mobile</span>';
+
+        const mainButton = donor.office_phone
+            ? '<button onclick="callNumber(\'' + escapeHtml(donor.office_phone || '') + '\', ' + donor.id + ')">Call Main</button>'
+            : '<span class="badge">No main</span>';
+
         donorTable.innerHTML += `
             <tr class="${statusClass}">
                 <td class="id-cell">${escapeHtml(donor.card_id || '')}</td>
 
                 <td class="campaign-cell">${campaignText}</td>
 
-                <td class="business-cell">${escapeHtml(donor.business_name || '')}${saleNumberBadge}${coldBadge}${promoBadge}${checkBadge}</td>
+                <td class="business-cell">${escapeHtml(donor.business_name || '') || '<span class="badge badge-yellow">Needs PCL match</span>'}${saleNumberBadge}${coldBadge}${promoBadge}${checkBadge}${idOnlyBadge}${noPhoneBadge}</td>
 
                 <td class="contact-cell">${escapeHtml(contactDisplay)}${saleContactBadge}</td>
 
                 <td class="phone-cell">
                     ${escapeHtml(donor.mobile || '')}
                     <br>
-                    <button onclick="callNumber('${escapeHtml(donor.mobile || '')}', ${donor.id})">Call Mobile</button>
+                    ${mobileButton}
                 </td>
 
                 <td class="phone-cell">
                     ${escapeHtml(donor.office_phone || '')}
                     <br>
-                    <button onclick="callNumber('${escapeHtml(donor.office_phone || '')}', ${donor.id})">Call Main</button>
+                    ${mainButton}
                 </td>
 
                 <td class="email-cell">
@@ -886,15 +930,6 @@ function renderDonors() {
 loadDonors();
 
 async function markLastCalled(id) {
-    /*
-    Kept for future use only.
-
-    IMPORTANT:
-    Do not call this from the phone buttons.
-    Starting a phone call must NOT update last_called, last_status_change, or status,
-    because that moves the contact into worked/already-called lists before an outcome
-    has actually been chosen.
-    */
     const { error } = await client
         .from('donors')
         .update({ last_called: new Date().toISOString() })
@@ -905,16 +940,10 @@ async function markLastCalled(id) {
 
 async function callNumber(number, id) {
     if (!number) {
-        alert('No number on this contact');
+        alert('No number on this contact. Use the card ID in PCL, then update details or delete if the ID is wrong.');
         return;
     }
 
-    /*
-    Phone click only opens the dialler.
-    The contact stays visible in the current queue until you choose an outcome/status.
-    Status functions such as No Answer, Callback, Closed Sale, Check Details, etc.
-    are the only things that update last_called / last_status_change.
-    */
     window.location.href = 'tel:' + number;
 }
 
@@ -1010,16 +1039,6 @@ async function updateNotes(id, notes) {
 }
 
 async function updateCallbackDate(id, callback_date) {
-    /*
-    callback_date is now a neutral next-action/follow-up date.
-
-    It does NOT change status to Callback Requested.
-    It does NOT update last_called or last_status_change.
-    It does NOT move the contact out of the current list.
-
-    Use the status dropdown when you actually want to move the contact
-    to Callback Requested, Email Sent, No Answer, etc.
-    */
     const { error } = await client
         .from('donors')
         .update({ callback_date: callback_date || null })
@@ -1162,7 +1181,9 @@ function clearEditForm() {
 }
 
 function loadContactForEdit() {
-    const lookup = document.getElementById('edit_lookup').value.trim().toLowerCase();
+    const lookupRaw = document.getElementById('edit_lookup').value.trim();
+    const lookup = lookupRaw.toLowerCase();
+    const lookupDigits = lookupRaw.replace(/\D/g, '');
 
     if (!lookup) {
         alert('Enter an ID, phone number, or business name');
@@ -1174,8 +1195,8 @@ function loadContactForEdit() {
             String(item.business_name || '').toLowerCase().includes(lookup) ||
             String(item.contact_name || '').toLowerCase().includes(lookup) ||
             String(item.sale_contact_name || '').toLowerCase().includes(lookup) ||
-            String(item.mobile || '').replace(/\D/g, '').includes(lookup.replace(/\D/g, '')) ||
-            String(item.office_phone || '').replace(/\D/g, '').includes(lookup.replace(/\D/g, '')) ||
+            (lookupDigits && String(item.mobile || '').replace(/\D/g, '').includes(lookupDigits)) ||
+            (lookupDigits && String(item.office_phone || '').replace(/\D/g, '').includes(lookupDigits)) ||
             String(item.email || '').toLowerCase().includes(lookup);
     });
 
@@ -1252,7 +1273,7 @@ async function deleteLoadedContact() {
         return;
     }
 
-    const confirmed = confirm('Delete contact ' + cardId + ' — ' + businessName + '?\n\nThis cannot be undone.');
+    const confirmed = confirm('Delete contact ' + cardId + ' — ' + businessName + '?\n\nUse this when the PCL ID does not exist, or the ID belongs to the wrong business.\n\nThis cannot be undone.');
     if (!confirmed) return;
 
     const doubleConfirmed = confirm('Final check: permanently delete this contact from donors?');
@@ -1276,12 +1297,21 @@ async function deleteLoadedContact() {
 async function addDonor() {
     const campaignCode = document.getElementById('campaign_code').value || DEFAULT_CAMPAIGN_CODE;
     const salesHistory = '';
+    const cardId = document.getElementById('card_id').value.trim();
+
+    if (!cardId) {
+        alert('Card / PCL ID is required. ID-only contacts are okay, but the ID must be entered.');
+        return;
+    }
+
+    const notesValue = document.getElementById('notes').value ||
+        'ID visible / entered. Details may need PCL lookup. If ID is wrong or belongs to another business, delete this contact.';
 
     const { error } = await client
         .from('donors')
         .insert([
             {
-                card_id: document.getElementById('card_id').value,
+                card_id: cardId,
                 business_name: document.getElementById('business_name').value,
                 contact_name: document.getElementById('contact_name').value,
                 mobile: document.getElementById('phone').value,
@@ -1289,7 +1319,7 @@ async function addDonor() {
                 email: document.getElementById('email').value,
                 location: document.getElementById('location').value,
                 status: document.getElementById('status').value || 'Not Called',
-                notes: document.getElementById('notes').value,
+                notes: notesValue,
                 charity_name: document.getElementById('charity_name').value || DEFAULT_CHARITY_NAME,
                 campaign_code: campaignCode,
                 campaign_area: document.getElementById('campaign_area').value,
@@ -1393,10 +1423,7 @@ function buildReport(title, data, startDate, endDate, campaignOnly) {
 
     const worked = getReportDataByRange(reportData, startDate, endDate);
 
-    const callQueue = reportData.filter(donor => {
-        const status = normaliseStatus(donor.status);
-        return !status || status === 'not called';
-    }).length;
+    const callQueue = reportData.filter(donor => isCallQueueContact(donor)).length;
 
     const noAnswer = worked.filter(donor => normaliseStatus(donor.status) === 'no answer').length;
     const callbacks = worked.filter(donor => isCallback(donor)).length;
@@ -1487,7 +1514,7 @@ function buildReport(title, data, startDate, endDate, campaignOnly) {
         '<h2>' + escapeHtml(title) + '</h2>' +
         (startDate && endDate ? '<p><strong>Period:</strong> ' + escapeHtml(startDate) + ' to ' + escapeHtml(endDate) + '</p>' : '') +
         '<p class="report-line"><strong>Total contacts in scope:</strong> ' + reportData.length + '</p>' +
-        '<p class="report-line"><strong>Still in call queue:</strong> ' + callQueue + '</p>' +
+        '<p class="report-line"><strong>Still in call queue / not called:</strong> ' + callQueue + '</p>' +
         '<p class="report-line"><strong>Calls made / worked:</strong> ' + callsMade + '</p>' +
         '<p class="report-line"><strong>Calls answered:</strong> ' + callsAnswered + '</p>' +
         '<p class="report-line"><strong>No answers:</strong> ' + noAnswer + '</p>' +
