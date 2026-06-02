@@ -144,8 +144,68 @@ input, textarea, select {
 }
 
 .notes-box {
-    width: 240px;
+    width: 255px;
     min-height: 86px;
+}
+
+.edit-readonly-box {
+    width: 95%;
+    min-height: 70px;
+    background: #f8f8f8;
+    color: #333;
+}
+
+.detail-cell {
+    width: 285px;
+    max-width: 285px;
+    font-size: 10px;
+}
+
+.detail-block {
+    margin-top: 5px;
+    padding: 5px;
+    border: 1px solid #ddd;
+    background: #fafafa;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.detail-title {
+    font-weight: bold;
+    color: #1f4e79;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.phone-notes-block {
+    background: #fff9e6;
+    border-color: #e3c86b;
+}
+
+.check-details-block {
+    background: #fdecec;
+    border-color: #e0a1a1;
+}
+
+.ask-cell {
+    width: 70px;
+    max-width: 70px;
+    font-size: 11px;
+}
+
+.ask-label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.history-detail {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.source-photo-badge {
+    background: #e6f1ff;
 }
 
 .date-input {
@@ -248,7 +308,7 @@ input, textarea, select {
 
 <body>
 
-<h1>Fundraising CRM Dashboard live - ID QUEUE TEST</h1>
+<h1>Fundraising CRM Dashboard LIVE</h1>
 
 <div id="campaignArea" class="top-bar">
     <strong>Calling campaign:</strong>
@@ -369,6 +429,7 @@ input, textarea, select {
 
         <div class="form-row"><textarea id="edit_check_details_reason" placeholder="Check Details reason / what needs fixing"></textarea></div>
         <div class="form-row"><textarea id="edit_sales_history" placeholder="Sales History"></textarea></div>
+        <div class="form-row"><textarea id="edit_phone_notes" class="edit-readonly-box" placeholder="Phone recovery notes / source photo / extra numbers" readonly></textarea></div>
         <div class="form-row"><textarea id="edit_notes" placeholder="Notes"></textarea></div>
 
         <button onclick="saveContactChanges()">Save Contact Changes</button>
@@ -391,10 +452,10 @@ input, textarea, select {
 <th>Location</th>
 <th>Last Called</th>
 <th>Status</th>
-<th>Amount</th>
+<th>Ask / Amount</th>
 <th>Entered</th>
 <th>History</th>
-<th>Notes</th>
+<th>Notes / Recovery</th>
 <th>Next Date</th>
 <th>Edit</th>
 </tr>
@@ -633,13 +694,28 @@ function donorMatchesSearch(donor, term) {
         donor.contact_name,
         donor.sale_contact_name,
         donor.mobile,
-        donor.office_phone
+        donor.office_phone,
+        donor.email,
+        donor.location,
+        donor.status,
+        donor.charity_name,
+        donor.campaign_code,
+        donor.campaign_area,
+        donor.campaign_year,
+        donor.suggested_ask,
+        donor.sale_number,
+        donor.notes,
+        donor.phone_notes,
+        donor.sales_history,
+        donor.check_details_reason
     ].join(' ').toLowerCase();
 
     const searchableDigits = [
         donor.card_id,
         donor.mobile,
-        donor.office_phone
+        donor.office_phone,
+        donor.suggested_ask,
+        donor.sale_number
     ].join(' ').replace(/\D/g, '');
 
     if (searchableText.includes(cleanTerm)) return true;
@@ -838,6 +914,41 @@ function getStatusOptions(selectedStatus) {
     }).join('');
 }
 
+function getPhoneNotes(donor) {
+    return donor.phone_notes || donor.photo_notes || donor.recovery_notes || '';
+}
+
+function makeDetailBlock(title, value, extraClass = '') {
+    const cleanValue = String(value || '').trim();
+    if (!cleanValue) return '';
+
+    return '<div class="detail-block ' + extraClass + '">' +
+        '<span class="detail-title">' + escapeHtml(title) + '</span>' +
+        escapeHtml(cleanValue) +
+        '</div>';
+}
+
+function makeBadgesForExtraRecoveryInfo(donor) {
+    let html = '';
+
+    const phoneNotes = String(getPhoneNotes(donor) || '');
+    const sourcePhotoMatch = phoneNotes.match(/photo:\s*([^|]+)/i);
+
+    if (sourcePhotoMatch && sourcePhotoMatch[1]) {
+        html += '<br><span class="badge source-photo-badge">photo: ' + escapeHtml(sourcePhotoMatch[1].trim()) + '</span>';
+    }
+
+    if (phoneNotes.toLowerCase().includes('confidence: low')) {
+        html += '<br><span class="badge badge-yellow">low confidence number</span>';
+    }
+
+    if (phoneNotes.toLowerCase().includes('manual') || String(donor.check_details_reason || '').trim()) {
+        html += '<br><span class="badge badge-red">manual check</span>';
+    }
+
+    return html;
+}
+
 function renderDonors() {
     const donorTable = document.getElementById('donorTable');
     donorTable.innerHTML = '';
@@ -874,6 +985,8 @@ function renderDonors() {
             ? '<br><span class="badge badge-green">Sale #' + escapeHtml(donor.sale_number) + '</span>'
             : '';
 
+        const recoveryBadges = makeBadgesForExtraRecoveryInfo(donor);
+
         const enteredText = donor.pcl_entered ? 'Yes' : 'No';
 
         const enteredButton = isClosedSale(donor) && !donor.pcl_entered
@@ -888,13 +1001,20 @@ function renderDonors() {
             ? '<button onclick="callNumber(\'' + escapeHtml(donor.office_phone || '') + '\', ' + donor.id + ')">Call Main</button>'
             : '<span class="badge">No main</span>';
 
+        const salesHistoryBlock = donor.sales_history
+            ? '<div class="history-detail">' + escapeHtml(donor.sales_history) + '</div>'
+            : '<span class="badge">No history</span>';
+
+        const phoneNotesBlock = makeDetailBlock('Phone recovery / extra numbers', getPhoneNotes(donor), 'phone-notes-block');
+        const checkDetailsBlock = makeDetailBlock('Check details reason', donor.check_details_reason, 'check-details-block');
+
         donorTable.innerHTML += `
             <tr class="${statusClass}">
                 <td class="id-cell">${escapeHtml(donor.card_id || '')}</td>
 
                 <td class="campaign-cell">${campaignText}</td>
 
-                <td class="business-cell">${escapeHtml(donor.business_name || '') || '<span class="badge badge-yellow">Needs PCL match</span>'}${saleNumberBadge}${coldBadge}${promoBadge}${checkBadge}${idOnlyBadge}${noPhoneBadge}</td>
+                <td class="business-cell">${escapeHtml(donor.business_name || '') || '<span class="badge badge-yellow">Needs PCL match</span>'}${saleNumberBadge}${coldBadge}${promoBadge}${checkBadge}${idOnlyBadge}${noPhoneBadge}${recoveryBadges}</td>
 
                 <td class="contact-cell">${escapeHtml(contactDisplay)}${saleContactBadge}</td>
 
@@ -924,7 +1044,8 @@ function renderDonors() {
                     </select>
                 </td>
 
-                <td>
+                <td class="ask-cell">
+                    <span class="ask-label">Ask</span>
                     <input
                     type="number"
                     value="${escapeHtml(donor.suggested_ask || '')}"
@@ -942,14 +1063,16 @@ function renderDonors() {
                     ${enteredText}${enteredButton}
                 </td>
 
-                <td class="sales-history-cell">${escapeHtml(donor.sales_history || '')}</td>
+                <td class="sales-history-cell">${salesHistoryBlock}</td>
 
-                <td>
+                <td class="detail-cell">
                     <textarea
                     onchange="updateNotes(${donor.id}, this.value)"
                     rows="5"
                     class="notes-box"
                     >${escapeHtml(donor.notes || '')}</textarea>
+                    ${phoneNotesBlock}
+                    ${checkDetailsBlock}
                 </td>
 
                 <td>
@@ -986,7 +1109,15 @@ async function callNumber(number, id) {
         return;
     }
 
-    window.location.href = 'tel:' + number;
+    await markLastCalled(id);
+
+    const donor = allDonors.find(item => item.id === id);
+    if (donor) {
+        donor.last_called = new Date().toISOString();
+        renderDonors();
+    }
+
+    window.location.href = 'tel:' + String(number).replace(/\s+/g, '');
 }
 
 async function getNextSaleNumber() {
@@ -1203,6 +1334,7 @@ function fillEditForm(donor) {
     document.getElementById('edit_pcl_entered').checked = donor.pcl_entered === true;
     document.getElementById('edit_check_details_reason').value = donor.check_details_reason || '';
     document.getElementById('edit_sales_history').value = donor.sales_history || '';
+    document.getElementById('edit_phone_notes').value = getPhoneNotes(donor);
     document.getElementById('edit_notes').value = donor.notes || '';
 }
 
@@ -1213,7 +1345,7 @@ function clearEditForm() {
         'edit_amount', 'edit_sale_number', 'edit_sale_type', 'edit_charity_name', 'edit_campaign_code',
         'edit_campaign_area', 'edit_campaign_year', 'edit_campaign_status', 'edit_last_any_sale_year',
         'edit_last_autism_sale_year', 'edit_last_called_display', 'edit_check_details_reason',
-        'edit_sales_history', 'edit_notes'
+        'edit_sales_history', 'edit_phone_notes', 'edit_notes'
     ];
 
     ids.forEach(id => document.getElementById(id).value = '');
@@ -1237,6 +1369,10 @@ function loadContactForEdit() {
             String(item.business_name || '').toLowerCase().includes(lookup) ||
             String(item.contact_name || '').toLowerCase().includes(lookup) ||
             String(item.sale_contact_name || '').toLowerCase().includes(lookup) ||
+            String(item.notes || '').toLowerCase().includes(lookup) ||
+            String(item.phone_notes || '').toLowerCase().includes(lookup) ||
+            String(item.sales_history || '').toLowerCase().includes(lookup) ||
+            String(item.check_details_reason || '').toLowerCase().includes(lookup) ||
             (lookupDigits && String(item.mobile || '').replace(/\D/g, '').includes(lookupDigits)) ||
             (lookupDigits && String(item.office_phone || '').replace(/\D/g, '').includes(lookupDigits)) ||
             String(item.email || '').toLowerCase().includes(lookup);
@@ -1453,7 +1589,7 @@ function getCampaignBreakdownHtml(worked, closedSales, emailsSentList) {
             '</tr>';
     });
 
-    return '<table class="report-table"><thead><tr><th>Campaign</th><th>Charity</th><th>Area</th><th>Worked</th><th>Emails</th><th>Sales</th><th>Amount</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    return '<table class="report-table"><thead><tr><th>Campaign</th><th>Charity</th><th>Area</th><th>Worked</th><th>Emails</th><th>Sales</th><th>Ask / Amount</th></tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
 function buildReport(title, data, startDate, endDate, campaignOnly) {
