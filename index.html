@@ -476,10 +476,6 @@ function isCallQueueContact(donor) {
         status.includes('email') ||
         status === 'follow up' ||
         status === 'interested' ||
-        status === 'check details' ||
-        status === 'check number' ||
-        status.includes('check detail') ||
-        status.includes('check number') ||
         status === 'closed sale' ||
         status === 'personal donation' ||
         status === 'no' ||
@@ -714,7 +710,7 @@ function getFilteredData() {
 
     filteredData = applyCampaignFilter(filteredData);
 
-   if (currentFilter === 'callQueue') {
+  if (currentFilter === 'callQueue') {
     filteredData = filteredData.filter(donor => isCallQueueContact(donor));
 
     filteredData.sort((a, b) => {
