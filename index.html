@@ -38,6 +38,9 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 .check-details-block { background: #fdecec; border-color: #e0a1a1; }
 .ask-cell { width: 75px; max-width: 75px; font-size: 11px; }
 .ask-label { font-weight: bold; display: block; margin-bottom: 2px; }
+.ask-reason { display: block; margin-top: 4px; font-size: 10px; line-height: 1.2; color: #333; }
+.ask-saved { color: #145c2b; font-weight: bold; }
+.ask-smart { color: #8a5a00; font-weight: bold; }
 .date-input { width: 104px; }
 .last-called-cell { width: 74px; max-width: 74px; font-size: 11px; }
 .badge { display: inline-block; padding: 2px 5px; border-radius: 8px; background: #e9eef5; margin: 1px 0; font-size: 10px; }
@@ -64,7 +67,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - FAST v6 fixed rows - fast v5</h1>
+<h1>Fundraising CRM Dashboard LIVE - SMART ASK v7</h1>
 <div id="errorBox"></div>
 
 <div id="campaignArea" class="top-bar">
@@ -138,7 +141,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
     <div class="form-row"><input id="edit_office_phone" placeholder="Main Number"></div>
     <div class="form-row"><input id="edit_email" placeholder="Email"></div>
     <div class="form-row"><input id="edit_location" placeholder="Location"></div>
-    <div class="form-row"><input id="edit_amount" placeholder="Suggested Ask / Amount" type="number"></div>
+    <div class="form-row"><input id="edit_amount" placeholder="Suggested Smart Ask" type="number"></div>
     <div class="form-row"><input id="edit_sale_number" placeholder="Sale Number" type="number"></div>
     <div class="form-row">
       <select id="edit_sale_type">
@@ -181,7 +184,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
   <th>Location</th>
   <th>Last Called</th>
   <th>Status</th>
-  <th>Ask / Amount</th>
+  <th>Smart Ask</th>
   <th>Entered</th>
   <th>History</th>
   <th>Notes / Recovery</th>
@@ -346,10 +349,10 @@ function donorMatchesSearch(donor, term) {
     donor.id, donor.card_id, donor.business_name, donor.contact_name, donor.sale_contact_name,
     donor.mobile, donor.office_phone, donor.email, donor.location, donor.status,
     donor.notes, donor.phone_notes, donor.sales_history, donor.check_details_reason,
-    donor.campaign_code, donor.campaign_area, donor.charity_name, donor.sale_number, donor.suggested_ask
+    donor.campaign_code, donor.campaign_area, donor.charity_name, donor.sale_number, donor.suggested_ask, getAskReason(donor), getAskAmount(donor)
   ].join(' ').toLowerCase();
 
-  const searchableDigits = [donor.card_id, donor.mobile, donor.office_phone, donor.sale_number, donor.suggested_ask].join(' ').replace(/\D/g, '');
+  const searchableDigits = [donor.card_id, donor.mobile, donor.office_phone, donor.sale_number, donor.suggested_ask, getAskAmount(donor)].join(' ').replace(/\D/g, '');
   if (searchableText.includes(cleanTerm)) return true;
   if (digitsOnly && searchableDigits.includes(digitsOnly)) return true;
   return false;
@@ -409,6 +412,114 @@ function applyCampaignFilter(data) {
   return data.filter(donor => getCampaignCode(donor) === currentCampaignFilter);
 }
 
+
+function roundAsk(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n <= 0) return 60;
+  let rounded;
+  if (n <= 120) rounded = Math.round(n / 5) * 5;
+  else if (n <= 300) rounded = Math.round(n / 10) * 10;
+  else rounded = Math.round(n / 50) * 50;
+  return Math.max(60, Math.min(2000, rounded));
+}
+
+function extractMoneyAmounts(text) {
+  const source = String(text || '');
+  const amounts = [];
+  let match;
+  const dollarRegex = /\$\s*([0-9]{2,4})/g;
+  while ((match = dollarRegex.exec(source)) !== null) {
+    const n = Number(match[1]);
+    if (n >= 40 && n <= 2000) amounts.push(n);
+  }
+  return amounts;
+}
+
+function getPriorityAskByName(name) {
+  const n = String(name || '').toLowerCase();
+  const priority = [
+    ['advanced data centres', 1000],
+    ['pioneer group', 1000],
+    ['marsden point developments', 1000],
+    ['aon risk services', 750],
+    ['whangarei marine services', 500],
+    ['tim boyd electrical', 500],
+    ['northland orthopaedics', 500],
+    ['drainspec', 500],
+    ['bruce mcqueen builder', 500],
+    ['aa auto centre', 300],
+    ['mainfreight', 1000]
+  ];
+  for (const item of priority) {
+    if (n.includes(item[0])) return item[1];
+  }
+  return 0;
+}
+
+function getBusinessCapacityAsk(name) {
+  const n = String(name || '').toLowerCase();
+  if (!n.trim()) return { amount: 60, reason: 'No business name yet: use card ID in PCL first. Start with safe $60 unless PCL shows a stronger business.' };
+
+  const highKeywords = ['data centre','mainfreight','logistics','freight','transport','development','developer','property','risk services','insurance','corporate','marine','orthopaedic','medical centre','engineering','civil','construction','contractor','contractors','electrical','security','plumbing','drain','drainage','roofing','builder','builders','automotive','auto centre','motors','concrete','excavat','manufacturing','industrial'];
+  const mediumKeywords = ['accountant','law','legal','dental','chemist','pharmacy','real estate','restaurant','motel','hotel','print','gym','mechanical','tyres','flooring','carpet','joinery','nursery','avocado','farm','rural','4 square','service station'];
+  const lowKeywords = ['club','lions','community','church','op shop','school','small cafe','takeaway','hair','beauty'];
+
+  if (highKeywords.some(k => n.includes(k))) return { amount: 250, reason: 'Business type suggests stronger capacity: trade/corporate/medical/industrial style sponsor. Start around $250 and step up if they sound warm.' };
+  if (mediumKeywords.some(k => n.includes(k))) return { amount: 120, reason: 'Business type looks like a solid local operator. Start around $120, with room to drop to $60 or step to $200 if warm.' };
+  if (lowKeywords.some(k => n.includes(k))) return { amount: 60, reason: 'Community/small local type. Safer opening ask is $60 unless history says otherwise.' };
+  return { amount: 90, reason: 'No strong capacity signal found. Default working ask is $90, adjust during call.' };
+}
+
+function getRecommendedAskInfo(donor) {
+  const saved = Number(getAskAmount(donor) || 0);
+  if (Number.isFinite(saved) && saved > 0) {
+    return { amount: saved, source: 'saved', reason: 'Saved recommended ask from earlier card/business analysis.' };
+  }
+
+  const name = donor.business_name || '';
+  const priorityAsk = getPriorityAskByName(name);
+  const moneyAmounts = extractMoneyAmounts(donor.sales_history || '').concat(extractMoneyAmounts(donor.notes || ''));
+  const maxPast = moneyAmounts.length ? Math.max(...moneyAmounts) : 0;
+
+  if (priorityAsk > 0) {
+    return { amount: priorityAsk, source: 'smart', reason: 'Priority prospect / larger-capacity business from the call planning list. Use stronger sponsor ask first.' };
+  }
+
+  if (maxPast > 0) {
+    let amount;
+    if (maxPast >= 1000) amount = 1500;
+    else if (maxPast >= 500) amount = roundAsk(maxPast * 1.25);
+    else if (maxPast >= 300) amount = roundAsk(maxPast * 1.3);
+    else if (maxPast >= 120) amount = roundAsk(maxPast * 1.5);
+    else if (maxPast >= 90) amount = 120;
+    else amount = 90;
+    return { amount: amount, source: 'smart', reason: 'Based on visible past giving history. Highest visible amount: $' + maxPast + '. Ask slightly above past support where sensible.' };
+  }
+
+  const capacity = getBusinessCapacityAsk(name);
+  let amount = capacity.amount;
+  let reason = capacity.reason;
+
+  if (donor.promotion_eligible === true && amount < 120) {
+    amount = 120;
+    reason += ' Promotion eligible, so it is worth trying at least $120 if the contact is warm.';
+  }
+
+  if ((donor.cold_card === true || calculateColdCard(donor.last_any_sale_year, donor.sales_history)) && amount > 250) {
+    reason += ' Cold/older card, so open confident but be ready to step down quickly.';
+  }
+
+  return { amount: roundAsk(amount), source: 'smart', reason: reason };
+}
+
+function getAskAmount(donor) {
+  return Number(getRecommendedAskInfo(donor).amount || 0);
+}
+
+function getAskReason(donor) {
+  return getRecommendedAskInfo(donor).reason;
+}
+
 function getFilteredData() {
   let filteredData = Array.from(allDonors);
   const searchTerm = document.getElementById('searchBox').value.trim();
@@ -424,7 +535,7 @@ function getFilteredData() {
   if (currentFilter === 'callQueue') {
     filteredData = filteredData.filter(donor => isCallQueueContact(donor));
     filteredData.sort((a, b) => {
-      const askCompare = Number(b.suggested_ask || 0) - Number(a.suggested_ask || 0);
+      const askCompare = getAskAmount(b) - getAskAmount(a);
       if (askCompare !== 0) return askCompare;
       return String(a.card_id || '').localeCompare(String(b.card_id || ''));
     });
@@ -480,7 +591,7 @@ function getFilteredData() {
     return filteredData;
   }
 
-  filteredData.sort((a, b) => Number(b.suggested_ask || 0) - Number(a.suggested_ask || 0));
+  filteredData.sort((a, b) => getAskAmount(b) - getAskAmount(a));
   return filteredData;
 }
 
@@ -541,7 +652,7 @@ function renderDonors() {
     resultsInfo.innerHTML =
       '<strong>Showing ' + visibleData.length + ' of ' + filteredData.length + '</strong>' +
       (hiddenCount > 0 ? ' <button class="load-more-button" onclick="loadMoreRows()">Load next ' + Math.min(RENDER_STEP, hiddenCount) + '</button>' : '') +
-      ' <span class="help-text">Fast mode: long notes are previewed here. Use Edit to see full notes/recovery details.</span>';
+      ' <span class="help-text">Fast mode: call queue is sorted by Smart Ask. Blank saved asks are estimated from sales history, business type, and priority prospects.</span>';
   }
 
   const rows = visibleData.map(donor => {
@@ -573,7 +684,7 @@ function renderDonors() {
         <td class="location-cell">${escapeHtml(donor.location || '')}</td>
         <td class="last-called-cell">${escapeHtml(getLastCalledDisplay(donor.last_called || donor.last_status_change))}</td>
         <td><select onchange="updateStatus(${donor.id}, this.value)" class="status-select">${getStatusOptions(donor.status || 'Not Called')}</select></td>
-        <td class="ask-cell"><span class="ask-label">Ask</span><input type="number" value="${escapeHtml(donor.suggested_ask || '')}" onchange="updateSuggestedAsk(${donor.id}, this.value)" class="amount-input"></td>
+        <td class="ask-cell"><span class="ask-label">Ask</span><input type="number" value="${escapeHtml(getAskAmount(donor) || '')}" onchange="updateSuggestedAsk(${donor.id}, this.value)" class="amount-input"><span class="${donor.suggested_ask ? 'ask-saved' : 'ask-smart'}">${donor.suggested_ask ? 'saved' : 'smart'}</span><span class="ask-reason">${escapeHtml(shortText(getAskReason(donor), 120))}</span></td>
         <td class="pcl-cell"><input type="checkbox" ${donor.pcl_entered ? 'checked' : ''} onchange="updatePclEntered(${donor.id}, this.checked)"><br>${enteredText}${enteredButton}</td>
         <td class="sales-history-cell">${escapeHtml(shortText(donor.sales_history || '', 260)) || '<span class="badge">No history</span>'}</td>
         <td class="notes-cell">${buildNotesRecoveryHtml(donor)}<br><button onclick="loadThisContact(${donor.id})">Open full notes</button></td>
@@ -634,6 +745,9 @@ async function updateStatus(id, status) {
     updateData.sale_date = donor.sale_date || today;
     updateData.campaign_code = donor.campaign_code || (currentCampaignFilter !== 'all' ? currentCampaignFilter : DEFAULT_CAMPAIGN_CODE);
     updateData.sale_type = status === 'Personal Donation' ? 'Personal Donation' : (donor.sale_type || 'Business Sale');
+    if (!donor.suggested_ask) {
+      updateData.suggested_ask = getAskAmount(donor);
+    }
     if (!donor.sale_number) {
       const nextSaleNumber = getNextSaleNumberLocal();
       updateData.sale_number = nextSaleNumber;
@@ -733,7 +847,7 @@ function fillEditForm(donor) {
   document.getElementById('edit_office_phone').value = donor.office_phone || '';
   document.getElementById('edit_email').value = donor.email || '';
   document.getElementById('edit_location').value = donor.location || '';
-  document.getElementById('edit_amount').value = donor.suggested_ask || '';
+  document.getElementById('edit_amount').value = donor.suggested_ask || getAskAmount(donor) || '';
   document.getElementById('edit_sale_number').value = donor.sale_number || '';
   document.getElementById('edit_sale_type').value = donor.sale_type || '';
   document.getElementById('edit_charity_name').value = donor.charity_name || DEFAULT_CHARITY_NAME;
@@ -905,7 +1019,7 @@ function getCampaignBreakdownHtml(worked, closedSales, emailsSentList) {
     const campaignWorked = worked.filter(donor => getCampaignCode(donor) === code);
     const campaignSales = closedSales.filter(donor => getCampaignCode(donor) === code);
     const campaignEmails = emailsSentList.filter(donor => getCampaignCode(donor) === code);
-    const amount = campaignSales.reduce((sum, donor) => sum + Number(donor.suggested_ask || 0), 0);
+    const amount = campaignSales.reduce((sum, donor) => sum + Number(getAskAmount(donor) || 0), 0);
     const sample = campaignWorked[0] || campaignSales[0] || campaignEmails[0] || {};
     rows += '<tr><td>' + escapeHtml(code) + '</td><td>' + escapeHtml(sample.charity_name || DEFAULT_CHARITY_NAME) + '</td><td>' + escapeHtml(sample.campaign_area || '') + '</td><td>' + campaignWorked.length + '</td><td>' + campaignEmails.length + '</td><td>' + campaignSales.length + '</td><td>$' + amount + '</td></tr>';
   });
@@ -932,20 +1046,20 @@ function buildReport(title, data, startDate, endDate, campaignOnly) {
   closedSales.sort((a, b) => Number(a.sale_number || 999999) - Number(b.sale_number || 999999));
   const coldCardSales = closedSales.filter(donor => donor.cold_card === true || calculateColdCard(donor.last_any_sale_year, donor.sales_history));
   const promotionSales = closedSales.filter(donor => donor.promotion_eligible === true);
-  const closedSalesTotal = closedSales.reduce((sum, donor) => sum + Number(donor.suggested_ask || 0), 0);
+  const closedSalesTotal = closedSales.reduce((sum, donor) => sum + Number(getAskAmount(donor) || 0), 0);
   const callsMade = worked.length;
   const callsAnswered = Math.max(0, callsMade - noAnswer);
   let closedSalesHtml = '';
   closedSales.forEach((donor, index) => {
     const notesPreview = shortText(donor.notes || donor.phone_notes || '', 90);
-    closedSalesHtml += '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — Business: ' + escapeHtml(donor.business_name || '') + ' — Contact: ' + escapeHtml(getReportContactName(donor)) + ' — Amount: $' + escapeHtml(donor.suggested_ask || 0) + ' — Sale #: ' + escapeHtml(donor.sale_number || (index + 1)) + ' — Type: ' + escapeHtml(donor.sale_type || '') + ' — Email: ' + escapeHtml(donor.email || '') + ' — Campaign: ' + escapeHtml(getCampaignCode(donor)) + ' — Entered: ' + (donor.pcl_entered ? 'Yes' : 'No') + ' — Notes: ' + escapeHtml(notesPreview) + '</li>';
+    closedSalesHtml += '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — Business: ' + escapeHtml(donor.business_name || '') + ' — Contact: ' + escapeHtml(getReportContactName(donor)) + ' — Amount: $' + escapeHtml(getAskAmount(donor) || 0) + ' — Sale #: ' + escapeHtml(donor.sale_number || (index + 1)) + ' — Type: ' + escapeHtml(donor.sale_type || '') + ' — Email: ' + escapeHtml(donor.email || '') + ' — Campaign: ' + escapeHtml(getCampaignCode(donor)) + ' — Entered: ' + (donor.pcl_entered ? 'Yes' : 'No') + ' — Notes: ' + escapeHtml(notesPreview) + '</li>';
   });
   let emailsSentHtml = '';
-  emailsSentList.forEach(donor => { emailsSentHtml += '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — Business: ' + escapeHtml(donor.business_name || '') + ' — Contact: ' + escapeHtml(getReportContactName(donor)) + ' — Amount: $' + escapeHtml(donor.suggested_ask || 0) + ' — Follow-up Date: ' + escapeHtml(donor.callback_date || '') + ' — Campaign: ' + escapeHtml(getCampaignCode(donor)) + '</li>'; });
+  emailsSentList.forEach(donor => { emailsSentHtml += '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — Business: ' + escapeHtml(donor.business_name || '') + ' — Contact: ' + escapeHtml(getReportContactName(donor)) + ' — Amount: $' + escapeHtml(getAskAmount(donor) || 0) + ' — Follow-up Date: ' + escapeHtml(donor.callback_date || '') + ' — Campaign: ' + escapeHtml(getCampaignCode(donor)) + '</li>'; });
   let coldCardsHtml = '';
-  coldCardSales.forEach(donor => { coldCardsHtml += '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — ' + escapeHtml(donor.business_name || '') + ' — Contact: ' + escapeHtml(getReportContactName(donor)) + ' — Amount: $' + escapeHtml(donor.suggested_ask || 0) + ' — Last any sale year: ' + escapeHtml(donor.last_any_sale_year || 'unknown') + ' — Campaign: ' + escapeHtml(getCampaignCode(donor)) + '</li>'; });
+  coldCardSales.forEach(donor => { coldCardsHtml += '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — ' + escapeHtml(donor.business_name || '') + ' — Contact: ' + escapeHtml(getReportContactName(donor)) + ' — Amount: $' + escapeHtml(getAskAmount(donor) || 0) + ' — Last any sale year: ' + escapeHtml(donor.last_any_sale_year || 'unknown') + ' — Campaign: ' + escapeHtml(getCampaignCode(donor)) + '</li>'; });
   let promotionHtml = '';
-  promotionSales.forEach(donor => { promotionHtml += '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — ' + escapeHtml(donor.business_name || '') + ' — Contact: ' + escapeHtml(getReportContactName(donor)) + ' — Amount: $' + escapeHtml(donor.suggested_ask || 0) + ' — Last Autism sale year: ' + escapeHtml(donor.last_autism_sale_year || 'none/unknown') + ' — Campaign: ' + escapeHtml(getCampaignCode(donor)) + '</li>'; });
+  promotionSales.forEach(donor => { promotionHtml += '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — ' + escapeHtml(donor.business_name || '') + ' — Contact: ' + escapeHtml(getReportContactName(donor)) + ' — Amount: $' + escapeHtml(getAskAmount(donor) || 0) + ' — Last Autism sale year: ' + escapeHtml(donor.last_autism_sale_year || 'none/unknown') + ' — Campaign: ' + escapeHtml(getCampaignCode(donor)) + '</li>'; });
   const reportBox = document.getElementById('reportBox');
   showReportOnly();
   reportBox.innerHTML = '<h2>' + escapeHtml(title) + '</h2>' +
