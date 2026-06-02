@@ -50,6 +50,8 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 #reportBox { margin: 15px 0; padding: 20px; background: white; border: 1px solid #ccc; display: none; }
 #errorBox { display:none; margin: 10px 0; padding: 12px; border: 1px solid #b00020; background: #fdecec; color: #4d000b; white-space: pre-wrap; }
 #searchBox { width: 370px; padding: 6px; }
+#resultsInfo { margin: 8px 0 10px 0; padding: 8px; background: #fff; border: 1px solid #ddd; font-size: 12px; }
+.load-more-button { padding: 8px 14px; font-weight: bold; }
 .report-line { margin-bottom: 6px; }
 .report-list li { margin-bottom: 7px; }
 .report-table { margin: 10px 0 18px 0; font-size: 12px; }
@@ -62,7 +64,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - notes recovery v3</h1>
+<h1>Fundraising CRM Dashboard LIVE - fast v5</h1>
 <div id="errorBox"></div>
 
 <div id="campaignArea" class="top-bar">
@@ -95,6 +97,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </div>
 
 <div id="reportBox"></div>
+<div id="resultsInfo"></div>
 
 <div id="formArea" class="form-grid">
   <div class="form-box">
@@ -203,6 +206,9 @@ let currentFilter = 'callQueue';
 let currentCampaignFilter = 'all';
 let allDonors = [];
 let searchTimer = null;
+let currentRenderLimit = 70;
+const INITIAL_RENDER_LIMIT = 70;
+const RENDER_STEP = 70;
 
 function showError(message) {
   const box = document.getElementById('errorBox');
@@ -293,29 +299,42 @@ function showReportOnly() {
 
 function setFilter(filterName) {
   currentFilter = filterName;
+  resetRenderLimit();
   showDashboard();
   renderDonors();
 }
 
 function setCampaignFilter(value) {
   currentCampaignFilter = value;
+  resetRenderLimit();
   showDashboard();
   renderDonors();
 }
 
 function backToCallQueue() { setFilter('callQueue'); }
 
+function resetRenderLimit() {
+  currentRenderLimit = INITIAL_RENDER_LIMIT;
+}
+
+function loadMoreRows() {
+  currentRenderLimit += RENDER_STEP;
+  renderDonors();
+}
+
 function clearSearch() {
   document.getElementById('searchBox').value = '';
   currentFilter = 'callQueue';
+  resetRenderLimit();
   renderDonors();
 }
 
 function searchContacts() {
   currentFilter = 'search';
+  resetRenderLimit();
   showDashboard();
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(renderDonors, 120);
+  searchTimer = setTimeout(renderDonors, 180);
 }
 
 function donorMatchesSearch(donor, term) {
@@ -497,13 +516,13 @@ function shortText(value, maxLength) {
 function buildNotesRecoveryHtml(donor) {
   let html = '';
   if (donor.notes) {
-    html += '<div class="detail-block"><span class="detail-title">Notes</span>' + escapeHtml(donor.notes) + '</div>';
+    html += '<div class="detail-block"><span class="detail-title">Notes</span>' + escapeHtml(shortText(donor.notes, 180)) + '</div>';
   }
   if (donor.phone_notes) {
-    html += '<div class="detail-block phone-notes-block"><span class="detail-title">Phone recovery / extra numbers</span>' + escapeHtml(donor.phone_notes) + '</div>';
+    html += '<div class="detail-block phone-notes-block"><span class="detail-title">Phone recovery / extra numbers</span>' + escapeHtml(shortText(donor.phone_notes, 220)) + '</div>';
   }
   if (donor.check_details_reason) {
-    html += '<div class="detail-block check-details-block"><span class="detail-title">Check details</span>' + escapeHtml(donor.check_details_reason) + '</div>';
+    html += '<div class="detail-block check-details-block"><span class="detail-title">Check details</span>' + escapeHtml(shortText(donor.check_details_reason, 180)) + '</div>';
   }
   if (!html) html = '<span class="badge">No notes</span>';
   return html;
@@ -511,11 +530,21 @@ function buildNotesRecoveryHtml(donor) {
 
 function renderDonors() {
   const donorTable = document.getElementById('donorTable');
+  const resultsInfo = document.getElementById('resultsInfo');
   donorTable.innerHTML = '';
 
   const filteredData = getFilteredData();
+  const visibleData = filteredData.slice(0, currentRenderLimit);
+  const hiddenCount = Math.max(0, filteredData.length - visibleData.length);
 
-  filteredData.forEach(donor => {
+  if (resultsInfo) {
+    resultsInfo.innerHTML =
+      '<strong>Showing ' + visibleData.length + ' of ' + filteredData.length + '</strong>' +
+      (hiddenCount > 0 ? ' <button class="load-more-button" onclick="loadMoreRows()">Load next ' + Math.min(RENDER_STEP, hiddenCount) + '</button>' : '') +
+      ' <span class="help-text">Fast mode: long notes are previewed here. Use Edit to see full notes/recovery details.</span>';
+  }
+
+  const rows = visibleData.map(donor => {
     const statusClass = donor.status ? String(donor.status).toLowerCase().replaceAll(' ', '-') : '';
     const campaignText = escapeHtml(getCampaignCode(donor)) + '<br>' + escapeHtml(donor.campaign_area || '');
     const contactDisplay = getReportContactName(donor);
@@ -529,10 +558,10 @@ function renderDonors() {
     const phoneRecoveryBadge = donor.phone_notes ? '<br><span class="badge badge-blue">recovered phone notes</span>' : '';
     const enteredText = donor.pcl_entered ? 'Yes' : 'No';
     const enteredButton = isClosedSale(donor) && !donor.pcl_entered ? '<br><button class="success-button" onclick="updatePclEntered(' + donor.id + ', true)">Mark Entered</button>' : '';
-    const mobileButton = donor.mobile ? '<button onclick="callNumber(\'' + escapeHtml(donor.mobile || '') + '\', ' + donor.id + ')">Call Mobile</button>' : '<span class="badge">No mobile</span>';
-    const mainButton = donor.office_phone ? '<button onclick="callNumber(\'' + escapeHtml(donor.office_phone || '') + '\', ' + donor.id + ')">Call Main</button>' : '<span class="badge">No main</span>';
+    const mobileButton = donor.mobile ? '<button onclick="callNumberFromField(' + donor.id + ', \'mobile\')">Call Mobile</button>' : '<span class="badge">No mobile</span>';
+    const mainButton = donor.office_phone ? '<button onclick="callNumberFromField(' + donor.id + ', \'office_phone\')">Call Main</button>' : '<span class="badge">No main</span>';
 
-    donorTable.innerHTML += `
+    return `
       <tr class="${statusClass}">
         <td class="id-cell">${escapeHtml(donor.card_id || '')}</td>
         <td class="campaign-cell">${campaignText}</td>
@@ -546,13 +575,15 @@ function renderDonors() {
         <td><select onchange="updateStatus(${donor.id}, this.value)" class="status-select">${getStatusOptions(donor.status || 'Not Called')}</select></td>
         <td class="ask-cell"><span class="ask-label">Ask</span><input type="number" value="${escapeHtml(donor.suggested_ask || '')}" onchange="updateSuggestedAsk(${donor.id}, this.value)" class="amount-input"></td>
         <td class="pcl-cell"><input type="checkbox" ${donor.pcl_entered ? 'checked' : ''} onchange="updatePclEntered(${donor.id}, this.checked)"><br>${enteredText}${enteredButton}</td>
-        <td class="sales-history-cell">${escapeHtml(donor.sales_history || '') || '<span class="badge">No history</span>'}</td>
-        <td class="notes-cell">${buildNotesRecoveryHtml(donor)}<textarea onchange="updateNotes(${donor.id}, this.value)" rows="4" class="notes-box">${escapeHtml(donor.notes || '')}</textarea></td>
+        <td class="sales-history-cell">${escapeHtml(shortText(donor.sales_history || '', 260)) || '<span class="badge">No history</span>'}</td>
+        <td class="notes-cell">${buildNotesRecoveryHtml(donor)}<br><button onclick="loadThisContact(${donor.id})">Open full notes</button></td>
         <td><input type="date" value="${escapeHtml(donor.callback_date || '')}" onchange="updateCallbackDate(${donor.id}, this.value)" class="date-input"></td>
         <td><button onclick="loadThisContact(${donor.id})">Edit</button></td>
       </tr>
     `;
   });
+
+  donorTable.innerHTML = rows.join('');
 }
 
 async function markLastCalled(id) {
@@ -562,6 +593,12 @@ async function markLastCalled(id) {
   const donor = allDonors.find(item => item.id === id);
   if (donor) donor.last_called = nowIso;
   renderDonors();
+}
+
+async function callNumberFromField(id, fieldName) {
+  const donor = allDonors.find(item => item.id === id);
+  const number = donor ? donor[fieldName] : '';
+  await callNumber(number, id);
 }
 
 async function callNumber(number, id) {
