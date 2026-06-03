@@ -67,7 +67,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - SMART ASK v9 no-answer oldest first</h1>
+<h1>Fundraising CRM Dashboard LIVE - SMART ASK v10 no-answer stages</h1>
 <div id="errorBox"></div>
 
 <div id="campaignArea" class="top-bar">
@@ -82,7 +82,10 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
   <button onclick="setFilter('callQueue')">Call Queue / Not Called</button>
   <button onclick="setFilter('callbacks')">Callbacks</button>
   <button onclick="setFilter('email')">Email Follow Up</button>
-  <button onclick="setFilter('noAnswer')">No Answer</button>
+  <button onclick="setFilter('noAnswer')">No Answer All</button>
+  <button onclick="setFilter('noAnswer1')">No Answer 1st</button>
+  <button onclick="setFilter('noAnswer2')">No Answer 2nd</button>
+  <button onclick="setFilter('noAnswer3')">No Answer 3rd</button>
   <button onclick="setFilter('alreadyCalled')">Already Called</button>
   <button onclick="setFilter('checkDetails')">Check Details</button>
   <button onclick="setFilter('promotion')">Promotion</button>
@@ -259,7 +262,36 @@ function isNoStatus(donor) { const s = normaliseStatus(donor.status); return s =
 function isCallback(donor) { const s = normaliseStatus(donor.status); return s === 'callback requested' || s.includes('callback') || s.includes('call back'); }
 function isEmailFollowUp(donor) { const s = normaliseStatus(donor.status); return s === 'email sent' || s.includes('email'); }
 function isCheckDetails(donor) { const s = normaliseStatus(donor.status); return s === 'check details' || s === 'check number' || s.includes('check detail') || s.includes('check number'); }
-function isNoAnswer(donor) { return normaliseStatus(donor.status) === 'no answer'; }
+function isNoAnswer(donor) {
+  const s = normaliseStatus(donor.status);
+  return s === 'no answer' || s === 'no answer 2' || s === 'no answer 3' || s === 'no answer 3+' || s.includes('no answer');
+}
+
+function getNoAnswerStage(donor) {
+  const s = normaliseStatus(donor.status);
+  if (!isNoAnswer(donor)) return 0;
+  if (s.includes('3')) return 3;
+  if (s.includes('2')) return 2;
+  return 1;
+}
+
+function getNoAnswerStatusForStage(stage) {
+  if (Number(stage) >= 3) return 'No Answer 3';
+  if (Number(stage) === 2) return 'No Answer 2';
+  return 'No Answer';
+}
+
+function getNoAnswerActionHtml(donor) {
+  if (!isNoAnswer(donor)) return '';
+  const stage = getNoAnswerStage(donor);
+  if (stage <= 1) {
+    return '<br><button class="success-button" onclick="markNoAnswerStage(' + donor.id + ', 2)">After call: still no answer → 2nd</button>';
+  }
+  if (stage === 2) {
+    return '<br><button class="success-button" onclick="markNoAnswerStage(' + donor.id + ', 3)">After call: still no answer → 3rd</button>';
+  }
+  return '<br><button class="success-button" onclick="markNoAnswerStage(' + donor.id + ', 3)">After call: still no answer</button>';
+}
 
 function isAlreadyWorkedStatus(donor) {
   const s = normaliseStatus(donor.status);
@@ -554,16 +586,24 @@ function getFilteredData() {
     return filteredData;
   }
 
-  if (currentFilter === 'noAnswer') {
+  if (currentFilter === 'noAnswer' || currentFilter === 'noAnswer1' || currentFilter === 'noAnswer2' || currentFilter === 'noAnswer3') {
     filteredData = filteredData.filter(donor => isNoAnswer(donor));
 
-    // No Answer retry order: oldest called first, newest called last.
-    // This uses last_called first, then last_status_change, then updated_at/created_at as backup.
+    if (currentFilter === 'noAnswer1') filteredData = filteredData.filter(donor => getNoAnswerStage(donor) === 1);
+    if (currentFilter === 'noAnswer2') filteredData = filteredData.filter(donor => getNoAnswerStage(donor) === 2);
+    if (currentFilter === 'noAnswer3') filteredData = filteredData.filter(donor => getNoAnswerStage(donor) >= 3);
+
+    // Oldest called first, newest called last.
+    // Pressing Call Mobile/Main does NOT update last_called now.
+    // The row only moves/stages after you record the outcome after the call.
     filteredData.sort((a, b) => {
       const aTime = getCalledSortTime(a);
       const bTime = getCalledSortTime(b);
 
       if (aTime !== bTime) return aTime - bTime;
+
+      const stageCompare = getNoAnswerStage(a) - getNoAnswerStage(b);
+      if (stageCompare !== 0) return stageCompare;
 
       return String(a.business_name || '').localeCompare(String(b.business_name || ''));
     });
@@ -635,7 +675,7 @@ function sortByNextActionDateThenBusiness(a, b) {
 function getReportContactName(donor) { return donor.sale_contact_name || donor.contact_name || ''; }
 
 function getStatusOptions(selectedStatus) {
-  const options = ['Not Called', 'No Answer', 'Callback Requested', 'Follow Up', 'Email Sent', 'Interested', 'Closed Sale', 'Personal Donation', 'Check Details', 'Check Number', 'Not Interested', 'No'];
+  const options = ['Not Called', 'No Answer', 'No Answer 2', 'No Answer 3', 'Callback Requested', 'Follow Up', 'Email Sent', 'Interested', 'Closed Sale', 'Personal Donation', 'Check Details', 'Check Number', 'Not Interested', 'No'];
   return options.map(option => '<option ' + (option === selectedStatus ? 'selected' : '') + '>' + escapeHtml(option) + '</option>').join('');
 }
 
@@ -673,7 +713,7 @@ function renderDonors() {
     resultsInfo.innerHTML =
       '<strong>Showing ' + visibleData.length + ' of ' + filteredData.length + '</strong>' +
       (hiddenCount > 0 ? ' <button class="load-more-button" onclick="loadMoreRows()">Load next ' + Math.min(RENDER_STEP, hiddenCount) + '</button>' : '') +
-      ' <span class="help-text">Fast mode: call queue is sorted by Smart Ask. Blank saved asks are estimated from sales history, business type, and priority prospects.</span>';
+      ' <span class="help-text">Fast mode: call queue is sorted by Smart Ask. No Answer call buttons do not move rows until you record the after-call outcome.</span>';
   }
 
   const rows = visibleData.map(donor => {
@@ -687,6 +727,8 @@ function renderDonors() {
     const promoBadge = donor.promotion_eligible === true ? '<br><span class="badge">promo</span>' : '';
     const checkBadge = isCheckDetails(donor) ? '<br><span class="badge badge-red">check</span>' : '';
     const saleNumberBadge = donor.sale_number ? '<br><span class="badge badge-green">Sale #' + escapeHtml(donor.sale_number) + '</span>' : '';
+    const noAnswerStageBadge = isNoAnswer(donor) ? '<br><span class="badge badge-yellow">No answer call ' + getNoAnswerStage(donor) + '</span>' : '';
+    const noAnswerAction = getNoAnswerActionHtml(donor);
     const phoneRecoveryBadge = donor.phone_notes ? '<br><span class="badge badge-blue">recovered phone notes</span>' : '';
     const enteredText = donor.pcl_entered ? 'Yes' : 'No';
     const enteredButton = isClosedSale(donor) && !donor.pcl_entered ? '<br><button class="success-button" onclick="updatePclEntered(' + donor.id + ', true)">Mark Entered</button>' : '';
@@ -697,10 +739,10 @@ function renderDonors() {
       <tr class="${statusClass}">
         <td class="id-cell">${escapeHtml(donor.card_id || '')}</td>
         <td class="campaign-cell">${campaignText}</td>
-        <td class="business-cell">${escapeHtml(donor.business_name || '') || '<span class="badge badge-yellow">Needs PCL match</span>'}${saleNumberBadge}${coldBadge}${promoBadge}${checkBadge}${idOnlyBadge}${noPhoneBadge}${phoneRecoveryBadge}</td>
+        <td class="business-cell">${escapeHtml(donor.business_name || '') || '<span class="badge badge-yellow">Needs PCL match</span>'}${saleNumberBadge}${coldBadge}${promoBadge}${checkBadge}${noAnswerStageBadge}${idOnlyBadge}${noPhoneBadge}${phoneRecoveryBadge}</td>
         <td class="contact-cell">${escapeHtml(contactDisplay)}${saleContactBadge}</td>
         <td class="phone-cell">${escapeHtml(donor.mobile || '')}<br>${mobileButton}</td>
-        <td class="phone-cell">${escapeHtml(donor.office_phone || '')}<br>${mainButton}</td>
+        <td class="phone-cell">${escapeHtml(donor.office_phone || '')}<br>${mainButton}${noAnswerAction}</td>
         <td class="email-cell">${escapeHtml(donor.email || '')}</td>
         <td class="location-cell">${escapeHtml(donor.location || '')}</td>
         <td class="last-called-cell">${escapeHtml(getLastCalledDisplay(donor.last_called || donor.last_status_change))}</td>
@@ -738,8 +780,39 @@ async function callNumber(number, id) {
     alert('No number on this contact. Use the card ID in PCL, then update details or delete if the ID is wrong.');
     return;
   }
-  await markLastCalled(id);
+
+  // Important for No Answer lists:
+  // pressing Call Mobile/Main must NOT update last_called or re-sort the list.
+  // After the call, record the result with the status dropdown or the no-answer stage button.
   window.location.href = 'tel:' + number;
+}
+
+async function markNoAnswerStage(id, stage) {
+  const nowIso = new Date().toISOString();
+  const newStatus = getNoAnswerStatusForStage(stage);
+
+  const updateData = {
+    status: newStatus,
+    last_status_change: nowIso,
+    last_called: nowIso
+  };
+
+  const { error } = await client.from('donors').update(updateData).eq('id', id);
+
+  if (error) {
+    console.error('No answer stage update failed:', error);
+    alert('Failed to update no-answer stage: ' + (error.message || 'Unknown error'));
+    return;
+  }
+
+  const donor = allDonors.find(item => item.id === id);
+  if (donor) {
+    donor.status = newStatus;
+    donor.last_status_change = nowIso;
+    donor.last_called = nowIso;
+  }
+
+  renderDonors();
 }
 
 function getNextSaleNumberLocal() {
