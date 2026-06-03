@@ -67,7 +67,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - SMART ASK v10 no-answer stages</h1>
+<h1>Fundraising CRM Dashboard LIVE - SMART ASK v11 call totals</h1>
 <div id="errorBox"></div>
 
 <div id="campaignArea" class="top-bar">
@@ -211,6 +211,7 @@ const PAY_CYCLE_START = '2026-06-08';
 let currentFilter = 'callQueue';
 let currentCampaignFilter = 'all';
 let allDonors = [];
+let allCallLogs = [];
 let searchTimer = null;
 let currentRenderLimit = 70;
 const INITIAL_RENDER_LIMIT = 70;
@@ -417,6 +418,7 @@ function populateCampaignFilter() {
 
 async function loadDonors() {
   clearError();
+
   const { data, error } = await client
     .from('donors')
     .select('*')
@@ -435,6 +437,22 @@ async function loadDonors() {
   }
 
   allDonors = data || [];
+
+  const { data: callLogData, error: callLogError } = await client
+    .from('crm_call_log')
+    .select('*')
+    .order('called_at', { ascending: false })
+    .limit(5000);
+
+  if (callLogError) {
+    allCallLogs = [];
+    console.warn('CALL LOG LOAD WARNING:', callLogError);
+    showError('Dashboard loaded, but total call-attempt logging is not available yet. Run the crm_call_log SQL setup once.\n\n' +
+      'Call log message: ' + (callLogError.message || 'No message'));
+  } else {
+    allCallLogs = callLogData || [];
+  }
+
   populateCampaignFilter();
   renderDonors();
 }
@@ -772,18 +790,49 @@ async function markLastCalled(id) {
 async function callNumberFromField(id, fieldName) {
   const donor = allDonors.find(item => item.id === id);
   const number = donor ? donor[fieldName] : '';
-  await callNumber(number, id);
+  await callNumber(number, id, fieldName);
 }
 
-async function callNumber(number, id) {
+async function logCallAttempt(id, number, fieldName) {
+  const donor = allDonors.find(item => item.id === id) || {};
+  const nowIso = new Date().toISOString();
+
+  const payload = {
+    donor_id: id,
+    card_id: donor.card_id || null,
+    business_name: donor.business_name || null,
+    number_called: number || null,
+    number_type: fieldName || null,
+    campaign_code: getCampaignCode(donor),
+    status_at_call: donor.status || null,
+    called_at: nowIso
+  };
+
+  const { data, error } = await client
+    .from('crm_call_log')
+    .insert([payload])
+    .select()
+    .single();
+
+  if (error) {
+    console.warn('Call attempt log failed:', error);
+    showError('Call started, but total call-attempt logging failed. Run the crm_call_log SQL setup if needed.\n\n' +
+      (error.message || 'Unknown call log error'));
+    return;
+  }
+
+  allCallLogs.unshift(data || payload);
+}
+
+async function callNumber(number, id, fieldName) {
   if (!number) {
     alert('No number on this contact. Use the card ID in PCL, then update details or delete if the ID is wrong.');
     return;
   }
 
-  // Important for No Answer lists:
-  // pressing Call Mobile/Main must NOT update last_called or re-sort the list.
-  // After the call, record the result with the status dropdown or the no-answer stage button.
+  // This records the total phone attempt for the daily/pay-cycle reports.
+  // It does NOT update last_called or status, so the row will not jump around while you are still on the call.
+  await logCallAttempt(id, number, fieldName);
   window.location.href = 'tel:' + number;
 }
 
@@ -1105,6 +1154,29 @@ function getReportDataByRange(data, startDate, endDate) {
   return data.filter(donor => donorWorkedInRange(donor, startDate, endDate));
 }
 
+function getCallLogsForReport(startDate, endDate, campaignOnly) {
+  let logs = Array.from(allCallLogs || []);
+
+  if (campaignOnly && currentCampaignFilter !== 'all') {
+    logs = logs.filter(log => String(log.campaign_code || '').trim().toUpperCase() === currentCampaignFilter);
+  }
+
+  if (startDate && endDate) {
+    logs = logs.filter(log => dateInRange(log.called_at, startDate, endDate));
+  }
+
+  return logs;
+}
+
+function getCallLogUniqueContactCount(logs) {
+  const keys = new Set();
+  logs.forEach(log => {
+    const key = log.donor_id || log.card_id || (String(log.business_name || '') + '|' + String(log.number_called || ''));
+    if (key) keys.add(String(key));
+  });
+  return keys.size;
+}
+
 function getCampaignBreakdownHtml(worked, closedSales, emailsSentList) {
   const campaignCodes = Array.from(new Set(worked.concat(closedSales).concat(emailsSentList).map(getCampaignCode))).sort();
   if (campaignCodes.length === 0) return '<p>No campaign activity in this period.</p>';
@@ -1142,6 +1214,9 @@ function buildReport(title, data, startDate, endDate, campaignOnly) {
   const promotionSales = closedSales.filter(donor => donor.promotion_eligible === true);
   const closedSalesTotal = closedSales.reduce((sum, donor) => sum + Number(getAskAmount(donor) || 0), 0);
   const callsMade = worked.length;
+  const callAttempts = getCallLogsForReport(startDate, endDate, campaignOnly);
+  const totalCallAttempts = callAttempts.length;
+  const uniqueContactsCalled = getCallLogUniqueContactCount(callAttempts);
   const callsAnswered = Math.max(0, callsMade - noAnswer);
   let closedSalesHtml = '';
   closedSales.forEach((donor, index) => {
@@ -1160,7 +1235,9 @@ function buildReport(title, data, startDate, endDate, campaignOnly) {
     (startDate && endDate ? '<p><strong>Period:</strong> ' + escapeHtml(startDate) + ' to ' + escapeHtml(endDate) + '</p>' : '') +
     '<p class="report-line"><strong>Total contacts in scope:</strong> ' + reportData.length + '</p>' +
     '<p class="report-line"><strong>Still in call queue / not called:</strong> ' + callQueue + '</p>' +
-    '<p class="report-line"><strong>Calls made / worked:</strong> ' + callsMade + '</p>' +
+    '<p class="report-line"><strong>Contacts moved / worked:</strong> ' + callsMade + '</p>' +
+    '<p class="report-line"><strong>Total phone calls made:</strong> ' + totalCallAttempts + '</p>' +
+    '<p class="report-line"><strong>Unique contacts called:</strong> ' + uniqueContactsCalled + '</p>' +
     '<p class="report-line"><strong>Calls answered:</strong> ' + callsAnswered + '</p>' +
     '<p class="report-line"><strong>No answers:</strong> ' + noAnswer + '</p>' +
     '<p class="report-line"><strong>Callbacks:</strong> ' + callbacks + '</p>' +
