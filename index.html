@@ -67,7 +67,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - SMART ASK v8 fixed rows</h1>
+<h1>Fundraising CRM Dashboard LIVE - SMART ASK v9 no-answer oldest first</h1>
 <div id="errorBox"></div>
 
 <div id="campaignArea" class="top-bar">
@@ -519,15 +519,7 @@ function getAskAmount(donor) {
 function getAskReason(donor) {
   return getRecommendedAskInfo(donor).reason;
 }
-function getSortTime(value) {
-    if (!value) return 9999999999999;
 
-    const time = new Date(value).getTime();
-
-    if (isNaN(time)) return 9999999999999;
-
-    return time;
-}
 function getFilteredData() {
   let filteredData = Array.from(allDonors);
   const searchTerm = document.getElementById('searchBox').value.trim();
@@ -562,21 +554,22 @@ function getFilteredData() {
     return filteredData;
   }
 
- if (currentFilter === 'noAnswer') {
-    filteredData = filteredData.filter(donor => normaliseStatus(donor.status) === 'no answer');
+  if (currentFilter === 'noAnswer') {
+    filteredData = filteredData.filter(donor => isNoAnswer(donor));
 
-    // Oldest called first, latest called last
+    // No Answer retry order: oldest called first, newest called last.
+    // This uses last_called first, then last_status_change, then updated_at/created_at as backup.
     filteredData.sort((a, b) => {
-        const aTime = getSortTime(a.last_called || a.last_status_change || a.updated_at || a.created_at);
-        const bTime = getSortTime(b.last_called || b.last_status_change || b.updated_at || b.created_at);
+      const aTime = getCalledSortTime(a);
+      const bTime = getCalledSortTime(b);
 
-        if (aTime !== bTime) return aTime - bTime;
+      if (aTime !== bTime) return aTime - bTime;
 
-        return String(a.business_name || '').localeCompare(String(b.business_name || ''));
+      return String(a.business_name || '').localeCompare(String(b.business_name || ''));
     });
 
     return filteredData;
-}
+  }
 
   if (currentFilter === 'alreadyCalled') {
     filteredData = filteredData.filter(donor => donor.last_called || donor.last_status_change);
@@ -621,6 +614,16 @@ function getLastCalledDisplay(value) {
   const dateText = localDateString(value);
   if (dateText === today) return date.toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' });
   return date.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short' });
+}
+
+function getCalledSortTime(donor) {
+  const value = donor.last_called || donor.last_status_change || donor.updated_at || donor.created_at || '';
+  if (!value) return 9999999999999;
+
+  const time = new Date(value).getTime();
+  if (isNaN(time)) return 9999999999999;
+
+  return time;
 }
 
 function getNextActionDate(donor) { return String(donor.callback_date || '9999-12-31'); }
