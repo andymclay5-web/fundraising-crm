@@ -519,7 +519,15 @@ function getAskAmount(donor) {
 function getAskReason(donor) {
   return getRecommendedAskInfo(donor).reason;
 }
+function getSortTime(value) {
+    if (!value) return 9999999999999;
 
+    const time = new Date(value).getTime();
+
+    if (isNaN(time)) return 9999999999999;
+
+    return time;
+}
 function getFilteredData() {
   let filteredData = Array.from(allDonors);
   const searchTerm = document.getElementById('searchBox').value.trim();
@@ -554,11 +562,21 @@ function getFilteredData() {
     return filteredData;
   }
 
-  if (currentFilter === 'noAnswer') {
-    filteredData = filteredData.filter(donor => isNoAnswer(donor));
-    filteredData.sort(sortByNextActionDateThenBusiness);
+ if (currentFilter === 'noAnswer') {
+    filteredData = filteredData.filter(donor => normaliseStatus(donor.status) === 'no answer');
+
+    // Oldest called first, latest called last
+    filteredData.sort((a, b) => {
+        const aTime = getSortTime(a.last_called || a.last_status_change || a.updated_at || a.created_at);
+        const bTime = getSortTime(b.last_called || b.last_status_change || b.updated_at || b.created_at);
+
+        if (aTime !== bTime) return aTime - bTime;
+
+        return String(a.business_name || '').localeCompare(String(b.business_name || ''));
+    });
+
     return filteredData;
-  }
+}
 
   if (currentFilter === 'alreadyCalled') {
     filteredData = filteredData.filter(donor => donor.last_called || donor.last_status_change);
