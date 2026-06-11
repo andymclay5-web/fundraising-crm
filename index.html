@@ -53,6 +53,8 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 .badge-purple { background: #eee2ff; }
 .currently-calling { outline: 3px solid #ff9800; background: #fff8e1 !important; }
 .currently-calling td { background: #fff8e1 !important; }
+.recently-touched { outline: 3px solid #4caf50; background: #eefbf1 !important; }
+.recently-touched td { background: #eefbf1 !important; }
 .danger-button { background: #b00020; color: white; border: 1px solid #8a0018; }
 .success-button { background: #1b7f3a; color: white; border: 1px solid #145c2b; }
 .warning-button { background: #f0ad4e; color: #111; border: 1px solid #d8942f; }
@@ -74,7 +76,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v13</h1>
+<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v14 sticky edits</h1>
 <div id="errorBox"></div>
 <div id="warnBox"></div>
 
@@ -232,6 +234,8 @@ let duplicateLookup = new Map();
 let searchTimer = null;
 let currentRenderLimit = 70;
 let currentCallingId = null;
+let pinnedContactId = null;
+let pinnedContactReason = "";
 const INITIAL_RENDER_LIMIT = 70;
 const RENDER_STEP = 70;
 
@@ -521,7 +525,34 @@ function getRecommendedAskInfo(donor) {
 function getAskAmount(donor) { return Number(getRecommendedAskInfo(donor).amount || 0); }
 function getAskReason(donor) { return getRecommendedAskInfo(donor).reason; }
 
-function getFilteredData() {
+
+function pinContact(id, reason) {
+  pinnedContactId = Number(id);
+  pinnedContactReason = reason || 'recently updated';
+}
+
+function clearPinnedContact() {
+  pinnedContactId = null;
+  pinnedContactReason = '';
+  renderDonors();
+}
+
+function applyPinnedContact(data) {
+  if (!pinnedContactId) return data;
+  const donor = allDonors.find(item => Number(item.id) === Number(pinnedContactId));
+  if (!donor) return data;
+  const withoutPinned = data.filter(item => Number(item.id) !== Number(pinnedContactId));
+  return [donor].concat(withoutPinned);
+}
+
+function updateLocalDonor(id, updates) {
+  const donor = allDonors.find(item => Number(item.id) === Number(id));
+  if (donor) Object.assign(donor, updates);
+  buildDuplicateLookup();
+  return donor;
+}
+
+function getFilteredDataRaw() {
   let filteredData = Array.from(allDonors);
   const searchTerm = document.getElementById('searchBox').value.trim();
   if (searchTerm) {
@@ -557,6 +588,10 @@ function getFilteredData() {
   filteredData.sort((a,b) => getAskAmount(b) - getAskAmount(a));
   return filteredData;
 }
+function getFilteredData() {
+  return applyPinnedContact(getFilteredDataRaw());
+}
+
 function getLastCalledDisplay(value) {
   if (!value) return 'Not called';
   const date = new Date(value);
@@ -636,11 +671,11 @@ function renderDonors() {
   if (resultsInfo) {
     resultsInfo.innerHTML = '<strong>Showing ' + visibleData.length + ' of ' + filteredData.length + '</strong>' +
       (hiddenCount > 0 ? ' <button class="load-more-button" onclick="loadMoreRows()">Load next ' + Math.min(RENDER_STEP, hiddenCount) + '</button>' : '') +
-      ' <span class="help-text">' + escapeHtml(callLogNote) + ' Call Queue sorts biggest Smart Ask first. No Answer sorts oldest last call first.</span>';
+      ' <span class="help-text">' + escapeHtml(callLogNote) + ' Call Queue sorts biggest Smart Ask first. No Answer sorts oldest last call first.' + (pinnedContactId ? ' Green row pinned after edit/status change: ' + escapeHtml(pinnedContactReason) + ' <button onclick="clearPinnedContact()">Clear pinned row</button>' : '') + '</span>';
   }
   const rows = visibleData.map(donor => {
     const statusClass = donor.status ? String(donor.status).toLowerCase().replaceAll(' ', '-') : '';
-    const rowClass = (currentCallingId === donor.id ? ' currently-calling' : '');
+    const rowClass = (currentCallingId === donor.id ? ' currently-calling' : '') + (Number(pinnedContactId) === Number(donor.id) ? ' recently-touched' : '');
     const campaignText = escapeHtml(getCampaignCode(donor)) + '<br>' + escapeHtml(donor.campaign_area || '');
     const contactDisplay = getReportContactName(donor);
     const saleContactBadge = donor.sale_contact_name ? '<br><span class="badge badge-green">sale contact</span>' : '';
@@ -720,6 +755,7 @@ async function markNoAnswerStage(id, stage) {
   const donor = allDonors.find(item => item.id === id);
   if (donor) { donor.status = newStatus; donor.last_status_change = nowIso; donor.last_called = nowIso; }
   currentCallingId = null;
+  pinContact(id, 'no-answer outcome recorded — kept visible');
   renderDonors();
 }
 function getNextSaleNumberLocal() {
@@ -750,27 +786,33 @@ async function updateStatus(id, status) {
   if (status === 'Callback Requested' || status === 'Will Call Me' || status === 'Not Interested' || status === 'No') updateData.last_called = nowIso;
   const { error } = await client.from('donors').update(updateData).eq('id', id);
   if (error) { console.error('Status update failed:', error); alert('Failed to save status: ' + error.message); }
-  else { currentCallingId = null; await loadDonors(); }
+  else {
+    currentCallingId = null;
+    const saved = updateLocalDonor(id, updateData);
+    pinContact(id, 'status updated — kept visible so it does not vanish');
+    if (saved) fillEditForm(saved);
+    renderDonors();
+  }
 }
 async function updateNotes(id, notes) {
   const { error } = await client.from('donors').update({ notes: notes }).eq('id', id);
   if (error) { console.error('Notes update failed:', error); alert('Failed to save notes: ' + error.message); }
-  else { const donor = allDonors.find(item => item.id === id); if (donor) donor.notes = notes; }
+  else { const donor = allDonors.find(item => item.id === id); if (donor) donor.notes = notes; pinContact(id, 'notes changed — kept visible'); }
 }
 async function updateCallbackDate(id, callback_date) {
   const { error } = await client.from('donors').update({ callback_date: callback_date || null }).eq('id', id);
   if (error) { console.error('Next-action date update failed:', error); alert('Failed to save date: ' + error.message); }
-  else { const donor = allDonors.find(item => item.id === id); if (donor) donor.callback_date = callback_date || null; /* no render: changing date should not jump the row */ }
+  else { const donor = allDonors.find(item => item.id === id); if (donor) donor.callback_date = callback_date || null; pinContact(id, 'date changed — row held in place'); /* no render: changing date should not jump the row */ }
 }
 async function updateSuggestedAsk(id, suggested_ask) {
   const { error } = await client.from('donors').update({ suggested_ask: suggested_ask || null }).eq('id', id);
   if (error) { console.error('Amount update failed:', error); alert('Failed to save amount: ' + error.message); }
-  else { const donor = allDonors.find(item => item.id === id); if (donor) donor.suggested_ask = suggested_ask || null; }
+  else { const donor = allDonors.find(item => item.id === id); if (donor) donor.suggested_ask = suggested_ask || null; pinContact(id, 'ask changed — kept visible'); renderDonors(); }
 }
 async function updatePclEntered(id, pcl_entered) {
   const { error } = await client.from('donors').update({ pcl_entered: pcl_entered }).eq('id', id);
   if (error) { console.error('PCL entered update failed:', error); alert('Failed to save entered status: ' + error.message); }
-  else await loadDonors();
+  else { updateLocalDonor(id, { pcl_entered: pcl_entered }); pinContact(id, 'entered checkbox changed — kept visible'); renderDonors(); }
 }
 function calculateColdCard(lastAnySaleYear, salesHistory) {
   const explicitYear = Number(lastAnySaleYear || 0); if (explicitYear) return explicitYear <= 2020;
@@ -860,7 +902,13 @@ async function saveContactChanges() {
   };
   const { error } = await client.from('donors').update(updateData).eq('id', id);
   if (error) { console.error('Save contact failed:', error); alert('Failed to save contact changes: ' + error.message); }
-  else { alert('Contact updated'); await loadDonors(); }
+  else {
+    const saved = updateLocalDonor(id, updateData);
+    pinContact(id, 'contact edit saved — kept visible');
+    if (saved) fillEditForm(saved);
+    showWarning('Contact updated and pinned at the top of the current list so it does not disappear. Click Clear pinned row when done.');
+    renderDonors();
+  }
 }
 async function deleteLoadedContact() {
   const id = document.getElementById('edit_id').value; const cardId = document.getElementById('edit_card_id').value; const businessName = document.getElementById('edit_business_name').value;
