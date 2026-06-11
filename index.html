@@ -76,7 +76,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v15 report details fixed</h1>
+<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v16 email follow-up sort</h1>
 <div id="errorBox"></div>
 <div id="warnBox"></div>
 
@@ -566,7 +566,7 @@ function getFilteredDataRaw() {
   if (currentFilter === 'duplicateRisk') { filteredData = filteredData.filter(donor => hasDuplicateRisk(donor)); filteredData.sort((a,b) => cleanBusinessName(a.business_name).localeCompare(cleanBusinessName(b.business_name))); return filteredData; }
   if (currentFilter === 'callbacks') { filteredData = filteredData.filter(donor => isCallback(donor)); filteredData.sort((a,b) => String(a.callback_date || '9999-12-31').localeCompare(String(b.callback_date || '9999-12-31'))); return filteredData; }
   if (currentFilter === 'willCallMe') { filteredData = filteredData.filter(donor => isWillCallMe(donor)); filteredData.sort(sortByNextActionDateThenBusiness); return filteredData; }
-  if (currentFilter === 'email') { filteredData = filteredData.filter(donor => isEmailFollowUp(donor)); filteredData.sort(sortByNextActionDateThenBusiness); return filteredData; }
+  if (currentFilter === 'email') { filteredData = filteredData.filter(donor => isEmailFollowUp(donor)); filteredData.sort(sortEmailFollowUpList); return filteredData; }
   if (currentFilter === 'noAnswer') {
     filteredData = filteredData.filter(donor => isNoAnswerBlocked(donor));
     filteredData.sort(sortByOldestLastCallThenBusiness);
@@ -594,10 +594,33 @@ function getFilteredData() {
 function getLastCalledDisplay(value) {
   if (!value) return 'Not called';
   const date = new Date(value);
-  if (isNaN(date.getTime())) return String(value).slice(0, 10);
+  if (isNaN(date.getTime())) return formatNzShortDate(value) || String(value).slice(0, 10);
   const today = todayString(); const dateText = localDateString(value);
   if (dateText === today) return date.toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' });
   return date.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short' });
+}
+
+function formatNzShortDate(value) {
+  if (!value) return '';
+  const raw = String(value).trim();
+  let year, month, day;
+
+  // Date-only fields from Supabase, like 2026-06-12, are already the intended NZ calendar date.
+  const dateOnlyMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnlyMatch) {
+    year = dateOnlyMatch[1];
+    month = dateOnlyMatch[2];
+    day = dateOnlyMatch[3];
+  } else {
+    // ISO timestamps are UTC; convert through the browser so NZ/local day displays correctly.
+    const date = new Date(raw);
+    if (isNaN(date.getTime())) return raw;
+    year = String(date.getFullYear());
+    month = String(date.getMonth() + 1).padStart(2, '0');
+    day = String(date.getDate()).padStart(2, '0');
+  }
+
+  return Number(day) + '/' + Number(month) + '/' + year.slice(-2);
 }
 function getCallLogsForDonor(donor) {
   const donorId = String(donor.id || '');
@@ -632,6 +655,29 @@ function getCallHistoryText(donor) {
 }
 function getNextActionDate(donor) { return String(donor.callback_date || '9999-12-31'); }
 function sortByNextActionDateThenBusiness(a,b) { const dateCompare = getNextActionDate(a).localeCompare(getNextActionDate(b)); if (dateCompare !== 0) return dateCompare; return String(a.business_name || '').localeCompare(String(b.business_name || '')); }
+function hasSelectedFollowUpDate(donor) { return String(donor.callback_date || '').trim() !== ''; }
+function getSelectedDateSortTime(donor) {
+  if (!hasSelectedFollowUpDate(donor)) return 9999999999999;
+  const time = new Date(String(donor.callback_date).slice(0, 10) + 'T00:00:00').getTime();
+  return isNaN(time) ? 9999999999999 : time;
+}
+function sortEmailFollowUpList(a,b) {
+  // Selected follow-up dates take priority. Those rows come first, sorted nearest date first.
+  const aHasDate = hasSelectedFollowUpDate(a);
+  const bHasDate = hasSelectedFollowUpDate(b);
+  if (aHasDate !== bHasDate) return aHasDate ? -1 : 1;
+
+  if (aHasDate && bHasDate) {
+    const selectedDateCompare = getSelectedDateSortTime(a) - getSelectedDateSortTime(b);
+    if (selectedDateCompare !== 0) return selectedDateCompare;
+  }
+
+  // Within the same selected-date group, work oldest last call first so neglected follow-ups rise to the top.
+  const lastCallCompare = getCalledSortTime(a) - getCalledSortTime(b);
+  if (lastCallCompare !== 0) return lastCallCompare;
+
+  return String(a.business_name || '').localeCompare(String(b.business_name || ''));
+}
 function getReportContactName(donor) { return donor.sale_contact_name || donor.contact_name || ''; }
 
 function getStatusOptions(selectedStatus) {
@@ -692,7 +738,8 @@ function renderDonors() {
     const enteredButton = isClosedSale(donor) && !donor.pcl_entered ? '<br><button class="success-button" onclick="updatePclEntered(' + donor.id + ', true)">Mark Entered</button>' : '';
     const mobileButton = donor.mobile ? '<button onclick="callNumberFromField(' + donor.id + ', \'mobile\')">Call Mobile</button>' : '<span class="badge">No mobile</span>';
     const mainButton = donor.office_phone ? '<button onclick="callNumberFromField(' + donor.id + ', \'office_phone\')">Call Main</button>' : '<span class="badge">No main</span>';
-    const emailDate = donor.email_sent_date ? '<br><span class="badge badge-blue">Email sent ' + escapeHtml(localDateString(donor.email_sent_date)) + '</span>' : '';
+    const emailDate = donor.email_sent_date ? '<br><span class="badge badge-blue">Email sent ' + escapeHtml(formatNzShortDate(donor.email_sent_date)) + '</span>' : '';
+    const followUpDate = donor.callback_date ? '<br><span class="badge badge-yellow">Follow-up ' + escapeHtml(formatNzShortDate(donor.callback_date)) + '</span>' : '';
     const lastCallValue = getLastCallTimeValue(donor);
     const askInfo = getRecommendedAskInfo(donor);
     const pitch = isAutismCampaign(donor) ? '<span class="ask-reason"><strong>' + escapeHtml(getTicketPitchForAmount(askInfo.amount)) + '</strong></span>' : '';
@@ -704,7 +751,7 @@ function renderDonors() {
         <td class="contact-cell">${escapeHtml(contactDisplay)}${saleContactBadge}${personalBadge}</td>
         <td class="phone-cell">${escapeHtml(donor.mobile || '')}<br>${mobileButton}</td>
         <td class="phone-cell">${escapeHtml(donor.office_phone || '')}<br>${mainButton}${noAnswerAction}</td>
-        <td class="email-cell">${escapeHtml(donor.email || '')}${emailDate}</td>
+        <td class="email-cell">${escapeHtml(donor.email || '')}${emailDate}${followUpDate}</td>
         <td class="location-cell">${escapeHtml(donor.location || '')}</td>
         <td class="last-called-cell">${escapeHtml(getLastCalledDisplay(lastCallValue))}<br><span class="badge">${getCallAttemptCount(donor)} calls</span></td>
         <td><select onchange="updateStatus(${donor.id}, this.value)" class="status-select">${getStatusOptions(donor.status || 'Not Called')}</select></td>
@@ -1030,7 +1077,7 @@ function buildReport(title, data, startDate, endDate, campaignOnly) {
 
   let emailsSentHtml = '';
   emailsSentList.forEach(donor => {
-    const emailDate = getReportDateText(donor.email_sent_date || donor.last_status_change || donor.last_called);
+    const emailDate = formatNzShortDate(getReportDateText(donor.email_sent_date || donor.last_status_change || donor.last_called));
     const notesPreview = shortText(donor.notes || donor.phone_notes || '', 140);
     emailsSentHtml += '<li><strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong>' +
       ' — ID: ' + escapeHtml(donor.card_id || '') +
@@ -1039,7 +1086,7 @@ function buildReport(title, data, startDate, endDate, campaignOnly) {
       ' — Phone: ' + escapeHtml(donor.mobile || donor.office_phone || '') +
       ' — Amount/ask: $' + escapeHtml(getAskAmount(donor) || 0) +
       ' — Email sent date: ' + escapeHtml(emailDate || '') +
-      ' — Follow-up date: ' + escapeHtml(donor.callback_date || '') +
+      ' — Follow-up date: ' + escapeHtml(formatNzShortDate(donor.callback_date) || '') +
       ' — Campaign: ' + escapeHtml(getCampaignCode(donor)) +
       ' — Notes: ' + escapeHtml(notesPreview) + '</li>';
   });
