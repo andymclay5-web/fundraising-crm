@@ -76,7 +76,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v14 sticky edits</h1>
+<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v15 report details fixed</h1>
 <div id="errorBox"></div>
 <div id="warnBox"></div>
 
@@ -104,11 +104,10 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
   <button onclick="showPayCycleReport()">Pay Cycle Report</button>
   <button onclick="showCampaignReport()">Campaign Report</button>
   <span style="display:inline-block; margin-left:8px; padding:4px; background:#fff; border:1px solid #ccc;">
-    <strong>Past daily:</strong>
+    <strong>Daily by date:</strong>
     <input type="date" id="reportDate" class="date-input">
     <button onclick="showSelectedDailyReport(false)">Show Date - All</button>
     <button onclick="showSelectedDailyReport(true)">Show Date - Campaign</button>
-    <button onclick="showYesterdayReport()">Yesterday</button>
   </span>
 </div>
 
@@ -927,8 +926,26 @@ async function addDonor() {
   if (error) { console.error('Add donor failed:', error); alert('Failed to add donor: ' + error.message); }
   else { alert('Donor added'); await loadDonors(); ['card_id','business_name','contact_name','phone','office_phone','email','location','campaign_area','notes'].forEach(id => document.getElementById(id).value = ''); document.getElementById('status').value = 'Not Called'; }
 }
-function dateInRange(dateValue, startDate, endDate) { if (!dateValue) return false; const dateText = String(dateValue).slice(0,10); return dateText >= startDate && dateText <= endDate; }
-function donorWorkedInRange(donor, startDate, endDate) { return dateInRange(donor.last_status_change,startDate,endDate) || dateInRange(donor.last_called,startDate,endDate) || dateInRange(donor.sale_date,startDate,endDate) || dateInRange(donor.email_sent_date,startDate,endDate) || dateInRange(donor.check_details_date,startDate,endDate); }
+function getReportDateText(value) {
+  if (!value) return '';
+  const text = String(value);
+  // YYYY-MM-DD fields such as sale_date/email_sent_date are already NZ local dates.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text.slice(0, 10)) && !text.includes('T')) return text.slice(0, 10);
+  // ISO timestamps are stored in UTC by Supabase. Convert them back to NZ/local browser date before comparing.
+  return localDateString(value);
+}
+function dateInRange(dateValue, startDate, endDate) {
+  if (!dateValue) return false;
+  const dateText = getReportDateText(dateValue);
+  return dateText >= startDate && dateText <= endDate;
+}
+function donorWorkedInRange(donor, startDate, endDate) {
+  return dateInRange(donor.last_status_change,startDate,endDate) ||
+    dateInRange(donor.last_called,startDate,endDate) ||
+    dateInRange(donor.sale_date,startDate,endDate) ||
+    dateInRange(donor.email_sent_date,startDate,endDate) ||
+    dateInRange(donor.check_details_date,startDate,endDate);
+}
 function callLogInRange(log, startDate, endDate) { return dateInRange(log.called_at, startDate, endDate); }
 function getPayCycleRange() {
   const today = new Date(todayString() + 'T00:00:00'); const base = new Date(PAY_CYCLE_START + 'T00:00:00'); const dayMs = 24*60*60*1000; let diffDays = Math.floor((today - base) / dayMs); let cycles = Math.floor(diffDays / 14); if (diffDays < 0) cycles = 0;
@@ -936,6 +953,19 @@ function getPayCycleRange() {
   const toDateText = (date) => date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0'); return { start: toDateText(start), end: toDateText(end) };
 }
 function getReportDataByRange(data, startDate, endDate) { if (!startDate || !endDate) return Array.from(data); return data.filter(donor => donorWorkedInRange(donor,startDate,endDate)); }
+function donorHasEmailActivityInRange(donor, startDate, endDate) {
+  if (!startDate || !endDate) return isEmailFollowUp(donor);
+  return dateInRange(donor.email_sent_date,startDate,endDate) ||
+    (isEmailFollowUp(donor) && dateInRange(donor.last_status_change,startDate,endDate)) ||
+    (isEmailFollowUp(donor) && dateInRange(donor.last_called,startDate,endDate));
+}
+function donorHasSaleActivityInRange(donor, startDate, endDate) {
+  if (!isClosedSale(donor)) return false;
+  if (!startDate || !endDate) return true;
+  return dateInRange(donor.sale_date,startDate,endDate) ||
+    dateInRange(donor.last_status_change,startDate,endDate) ||
+    dateInRange(donor.last_called,startDate,endDate);
+}
 function getReportCallLogs(reportDonors, startDate, endDate) {
   const ids = new Set(reportDonors.map(d => String(d.id)));
   const cards = new Set(reportDonors.map(d => String(d.card_id || '').trim()).filter(Boolean));
@@ -958,7 +988,9 @@ function getCampaignBreakdownHtml(worked, closedSales, emailsSentList, reportCal
   return '<table class="report-table"><thead><tr><th>Campaign</th><th>Charity</th><th>Area</th><th>Worked/Moved</th><th>Call attempts</th><th>Unique called</th><th>Emails</th><th>Sales</th><th>Amount</th></tr></thead><tbody>' + rows + '</tbody></table>';
 }
 function buildReport(title, data, startDate, endDate, campaignOnly) {
-  let reportData = Array.from(data); if (campaignOnly && currentCampaignFilter !== 'all') reportData = reportData.filter(donor => getCampaignCode(donor) === currentCampaignFilter);
+  let reportData = Array.from(data);
+  if (campaignOnly && currentCampaignFilter !== 'all') reportData = reportData.filter(donor => getCampaignCode(donor) === currentCampaignFilter);
+
   const worked = getReportDataByRange(reportData, startDate, endDate);
   const reportCallLogs = getReportCallLogs(reportData, startDate, endDate);
   const uniqueCalled = new Set(reportCallLogs.map(log => String(log.donor_id || log.card_id || ''))).size;
@@ -967,20 +999,62 @@ function buildReport(title, data, startDate, endDate, campaignOnly) {
   const callbacks = worked.filter(donor => isCallback(donor)).length;
   const willCall = worked.filter(donor => isWillCallMe(donor)).length;
   const checkDetails = worked.filter(donor => isCheckDetails(donor)).length;
-  const emailsSentList = reportData.filter(donor => { if (startDate && endDate) return dateInRange(donor.email_sent_date,startDate,endDate) || (isEmailFollowUp(donor) && dateInRange(donor.last_status_change,startDate,endDate)); return isEmailFollowUp(donor); });
-  const closedSales = reportData.filter(donor => { if (!isClosedSale(donor)) return false; if (startDate && endDate) return dateInRange(donor.sale_date,startDate,endDate) || dateInRange(donor.last_status_change,startDate,endDate); return true; });
+
+  const emailsSentList = reportData.filter(donor => donorHasEmailActivityInRange(donor, startDate, endDate));
+  const closedSales = reportData.filter(donor => donorHasSaleActivityInRange(donor, startDate, endDate));
+
+  emailsSentList.sort((a,b) => String(getReportDateText(b.email_sent_date || b.last_status_change || b.last_called) || '').localeCompare(String(getReportDateText(a.email_sent_date || a.last_status_change || a.last_called) || '')));
   closedSales.sort((a,b) => Number(a.sale_number || 999999) - Number(b.sale_number || 999999));
+
   const closedSalesTotal = closedSales.reduce((sum, donor) => sum + Number(getAskAmount(donor) || 0), 0);
   const contactsMoved = worked.length;
+
   let closedSalesHtml = '';
   closedSales.forEach((donor, index) => {
-    const notesPreview = shortText(donor.notes || donor.phone_notes || '', 90);
-    closedSalesHtml += '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — Business: ' + escapeHtml(donor.business_name || '') + ' — Contact: ' + escapeHtml(getReportContactName(donor)) + ' — Amount: $' + escapeHtml(getAskAmount(donor) || 0) + ' — Sale #: ' + escapeHtml(donor.sale_number || (index + 1)) + ' — Type: ' + escapeHtml(donor.sale_type || '') + ' — Email: ' + escapeHtml(donor.email || '') + ' — Campaign: ' + escapeHtml(getCampaignCode(donor)) + ' — Entered: ' + (donor.pcl_entered ? 'Yes' : 'No') + ' — Notes: ' + escapeHtml(notesPreview) + '</li>';
+    const notesPreview = shortText(donor.notes || donor.phone_notes || donor.sales_history || '', 160);
+    const saleDate = getReportDateText(donor.sale_date || donor.last_status_change || donor.last_called);
+    closedSalesHtml += '<li><strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong>' +
+      ' — ID: ' + escapeHtml(donor.card_id || '') +
+      ' — Contact: ' + escapeHtml(getReportContactName(donor)) +
+      ' — Phone: ' + escapeHtml(donor.mobile || donor.office_phone || '') +
+      ' — Email: ' + escapeHtml(donor.email || '') +
+      ' — Amount: $' + escapeHtml(getAskAmount(donor) || 0) +
+      ' — Sale #: ' + escapeHtml(donor.sale_number || (index + 1)) +
+      ' — Sale date: ' + escapeHtml(saleDate || '') +
+      ' — Type: ' + escapeHtml(donor.sale_type || donor.status || '') +
+      ' — Campaign: ' + escapeHtml(getCampaignCode(donor)) +
+      ' — Entered: ' + (donor.pcl_entered ? 'Yes' : 'No') +
+      ' — Notes: ' + escapeHtml(notesPreview) + '</li>';
   });
+  if (!closedSalesHtml) closedSalesHtml = '<li>No closed sale details found for this report period.</li>';
+
   let emailsSentHtml = '';
-  emailsSentList.forEach(donor => { emailsSentHtml += '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — Business: ' + escapeHtml(donor.business_name || '') + ' — Contact: ' + escapeHtml(getReportContactName(donor)) + ' — Amount: $' + escapeHtml(getAskAmount(donor) || 0) + ' — Email sent date: ' + escapeHtml(donor.email_sent_date || '') + ' — Follow-up Date: ' + escapeHtml(donor.callback_date || '') + ' — Campaign: ' + escapeHtml(getCampaignCode(donor)) + '</li>'; });
+  emailsSentList.forEach(donor => {
+    const emailDate = getReportDateText(donor.email_sent_date || donor.last_status_change || donor.last_called);
+    const notesPreview = shortText(donor.notes || donor.phone_notes || '', 140);
+    emailsSentHtml += '<li><strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong>' +
+      ' — ID: ' + escapeHtml(donor.card_id || '') +
+      ' — Contact: ' + escapeHtml(getReportContactName(donor)) +
+      ' — Email: ' + escapeHtml(donor.email || '') +
+      ' — Phone: ' + escapeHtml(donor.mobile || donor.office_phone || '') +
+      ' — Amount/ask: $' + escapeHtml(getAskAmount(donor) || 0) +
+      ' — Email sent date: ' + escapeHtml(emailDate || '') +
+      ' — Follow-up date: ' + escapeHtml(donor.callback_date || '') +
+      ' — Campaign: ' + escapeHtml(getCampaignCode(donor)) +
+      ' — Notes: ' + escapeHtml(notesPreview) + '</li>';
+  });
+  if (!emailsSentHtml) emailsSentHtml = '<li>No email-sent details found for this report period.</li>';
+
   let callHistoryHtml = '';
-  reportCallLogs.slice(0, 100).forEach(log => { callHistoryHtml += '<li>' + escapeHtml(getLastCalledDisplay(log.called_at)) + ' — ID: ' + escapeHtml(log.card_id || '') + ' — ' + escapeHtml(log.business_name || '') + ' — ' + escapeHtml(log.number_type || '') + ': ' + escapeHtml(log.number_called || '') + ' — Status then: ' + escapeHtml(log.status_at_call || '') + '</li>'; });
+  reportCallLogs.slice(0, 100).forEach(log => {
+    callHistoryHtml += '<li>' + escapeHtml(getLastCalledDisplay(log.called_at)) +
+      ' — ID: ' + escapeHtml(log.card_id || '') +
+      ' — ' + escapeHtml(log.business_name || '') +
+      ' — ' + escapeHtml(log.number_type || '') + ': ' + escapeHtml(log.number_called || '') +
+      ' — Status then: ' + escapeHtml(log.status_at_call || '') + '</li>';
+  });
+  if (!callHistoryHtml) callHistoryHtml = '<li>No call attempts logged for this report period.</li>';
+
   const reportBox = document.getElementById('reportBox'); showReportOnly();
   reportBox.innerHTML = '<h2>' + escapeHtml(title) + '</h2>' +
     (startDate && endDate ? '<p><strong>Period:</strong> ' + escapeHtml(startDate) + ' to ' + escapeHtml(endDate) + '</p>' : '') +
@@ -997,8 +1071,8 @@ function buildReport(title, data, startDate, endDate, campaignOnly) {
     '<p class="report-line"><strong>Closed sales:</strong> ' + closedSales.length + '</p>' +
     '<p class="report-line"><strong>Total sales amount:</strong> $' + closedSalesTotal + '</p>' +
     '<h3>Campaign Breakdown</h3>' + getCampaignBreakdownHtml(worked, closedSales, emailsSentList, reportCallLogs) +
-    '<h3>Closed Sales</h3><ul class="report-list">' + closedSalesHtml + '</ul>' +
-    '<h3>Email Sent Follow Ups</h3><ul class="report-list">' + emailsSentHtml + '</ul>' +
+    '<h3>Closed Sales Details</h3><ul class="report-list">' + closedSalesHtml + '</ul>' +
+    '<h3>Email Sent Details</h3><ul class="report-list">' + emailsSentHtml + '</ul>' +
     '<h3>Call Attempts Logged</h3><ul class="report-list">' + callHistoryHtml + '</ul>' +
     '<div class="no-print" style="margin-top: 20px;"><button onclick="backToCallQueue()">Back to Call Queue</button><button onclick="window.print()">Print / Save as PDF</button></div>';
 }
@@ -1006,7 +1080,7 @@ function setDefaultReportDate() { const input = document.getElementById('reportD
 function showDailyReport() { const today = todayString(); const input = document.getElementById('reportDate'); if (input) input.value = today; buildReport('Daily Fundraising Report - All Campaigns', allDonors, today, today, false); }
 function showSelectedDailyReport(campaignOnly) { const input = document.getElementById('reportDate'); const selectedDate = input && input.value ? input.value : todayString(); const label = campaignOnly && currentCampaignFilter !== 'all' ? currentCampaignFilter : 'All Campaigns'; buildReport('Daily Fundraising Report - ' + label, allDonors, selectedDate, selectedDate, campaignOnly); }
 function showYesterdayReport() { const date = new Date(todayString() + 'T00:00:00'); date.setDate(date.getDate() - 1); const text = date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0'); const input = document.getElementById('reportDate'); if (input) input.value = text; buildReport('Daily Fundraising Report - All Campaigns', allDonors, text, text, false); }
-function showPayCycleReport() { const range = getPayCycleRange(); buildReport('Pay Cycle Fundraising Report - All Campaigns', allDonors, range.start, range.end, false); }
+function showPayCycleReport() { const range = getPayCycleRange(); buildReport('Pay Cycle Fundraising Report - Current Fortnight - All Campaigns', allDonors, range.start, range.end, false); }
 function showCampaignReport() { const label = currentCampaignFilter === 'all' ? 'All Campaigns' : currentCampaignFilter; buildReport('Campaign Fundraising Report - ' + label, allDonors, null, null, true); }
 
 setDefaultReportDate();
