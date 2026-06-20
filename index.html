@@ -29,7 +29,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 .amount-input { width: 62px; }
 .pcl-cell { width: 50px; text-align: center; }
 .sales-history-cell { width: 135px; max-width: 135px; font-size: 10px; white-space: pre-wrap; word-break: break-word; }
-.notes-cell { width: 255px; max-width: 255px; font-size: 10px; }
+.notes-cell { width: 330px; max-width: 330px; font-size: 10px; }
 .notes-box { width: 285px; min-height: 72px; }
 .edit-readonly-box { width: 95%; min-height: 70px; background: #f8f8f8; color: #333; }
 .detail-block { margin-top: 5px; padding: 5px; border: 1px solid #ddd; background: #fafafa; white-space: pre-wrap; word-break: break-word; }
@@ -77,13 +77,9 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 .form-panel-header { display:flex; justify-content:space-between; align-items:center; gap:8px; }
 .form-panel-header h2 { margin:0; }
 .email-stage-select { width: 128px; font-size: 10px; margin-top: 2px; }
+.phone-call-log { margin-top:4px; padding:3px; border:1px solid #9cc7e8; background:#eef7ff; font-size:10px; line-height:1.2; white-space:pre-wrap; word-break:break-word; }
+.compact-muted { color:#666; font-size:10px; }
 
-.phone-log { margin-top: 3px; padding-top: 2px; border-top: 1px dotted #ddd; font-size: 10px; line-height: 1.25; color: #333; }
-.phone-log-line { display: block; margin-top: 1px; }
-.phone-log-empty { color: #777; }
-.compact-muted { color: #666; font-size: 10px; }
-.compact-details { margin-top: 4px; }
-.compact-details summary { cursor: pointer; color: #1f4e79; font-weight: bold; }
 .bonus-strip { display: grid; grid-template-columns: repeat(4, minmax(180px, 1fr)); gap: 8px; margin: 8px 0 10px 0; }
 .bonus-card { background: white; border: 1px solid #ccc; padding: 8px; font-size: 12px; min-height: 54px; }
 .bonus-card strong { display: block; font-size: 13px; margin-bottom: 3px; color: #1f4e79; }
@@ -101,7 +97,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.4.2 compact notes + phone-side call log</h1>
+<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.5 stable rebuild</h1>
 <div id="errorBox"></div>
 <div id="warnBox"></div>
 
@@ -304,7 +300,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
   <th>Smart Ask</th>
   <th>Entered</th>
   <th>History</th>
-  <th>Call Notes / Warnings / Calls</th>
+  <th>Notes / Recovery / Call History</th>
   <th>Next Date</th>
   <th>Edit</th>
 </tr>
@@ -541,10 +537,10 @@ function addOptionalSaleAmountFields(updateData, donor, amount) {
 }
 function isColdBonusEligible(donor) {
   if (!donor) return false;
-  // v18.4 rule: only reliable explicit fields count for cold bonus.
-  // Do not infer cold eligibility from old noisy notes/import boilerplate.
   if (donor.cold_bonus_eligible === true || donor.cold_bonus_eligible === 'true') return true;
 
+  // Keep this cautious. Do not use old cold_card/promotion_eligible flags or noisy note text.
+  // Count only explicit reliable fields.
   const historyGroup = String(donor.history_group || '').toLowerCase();
   if (historyGroup.includes('cold') || historyGroup.includes('no sale since 2020') || historyGroup.includes('pre-2020') || historyGroup.includes('pre 2020')) return true;
 
@@ -586,114 +582,76 @@ function getDashboardScopeData() {
 function getSalesTotalForRange(data, startDate, endDate) {
   return getClosedSalesForRange(data, startDate, endDate).reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0);
 }
-function getDateRangeList(startDate, endDate) {
-  if (!startDate || !endDate) return [todayString()];
+function getDateList(startDate, endDate) {
+  if (!startDate || !endDate) return [];
   const dates = [];
   const start = new Date(startDate + 'T00:00:00');
   const end = new Date(endDate + 'T00:00:00');
-  if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return [startDate];
-  const dayMs = 24 * 60 * 60 * 1000;
-  for (let t = start.getTime(); t <= end.getTime(); t += dayMs) {
-    const d = new Date(t);
-    dates.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return [];
+  const current = new Date(start.getTime());
+  while (current <= end) {
+    dates.push(current.getFullYear() + '-' + String(current.getMonth()+1).padStart(2,'0') + '-' + String(current.getDate()).padStart(2,'0'));
+    current.setDate(current.getDate() + 1);
   }
   return dates;
 }
-function getDailyBonusBreakdown(data, startDate, endDate) {
-  const dates = getDateRangeList(startDate || todayString(), endDate || startDate || todayString());
-  const rows = dates.map(dateText => {
+function getDailyBonusRows(data, startDate, endDate) {
+  const dates = getDateList(startDate, endDate);
+  return dates.map(dateText => {
     const total = getSalesTotalForRange(data, dateText, dateText);
     const bonus = calculateDailyBonus(total);
     const nextTarget = getNextDailyBonusTarget(total);
-    return { date: dateText, total: total, bonus: bonus, nextTarget: nextTarget, toNext: Math.max(0, nextTarget - total) };
+    const untilNext = Math.max(0, nextTarget - total);
+    return { date: dateText, total, bonus, nextTarget, untilNext };
   });
-  const totalBonus = rows.reduce((sum, row) => sum + row.bonus, 0);
-  const totalSales = rows.reduce((sum, row) => sum + row.total, 0);
-  return { rows: rows, totalBonus: totalBonus, totalSales: totalSales };
 }
-function getDailyBonusSummaryText(breakdown) {
-  const counts = new Map();
-  breakdown.rows.forEach(row => {
-    if (row.bonus > 0) counts.set(row.bonus, (counts.get(row.bonus) || 0) + 1);
-  });
-  if (counts.size === 0) return 'No daily bonuses earned in this period.';
-  return Array.from(counts.entries()).sort((a, b) => a[0] - b[0]).map(([bonus, count]) => count + ' × ' + formatMoney(bonus)).join(', ') + ' = ' + formatMoney(breakdown.totalBonus);
+function getTotalDailyBonusForRange(data, startDate, endDate) {
+  return getDailyBonusRows(data, startDate, endDate).reduce((sum, row) => sum + Number(row.bonus || 0), 0);
+}
+function getDailyBonusSummaryText(rows) {
+  const earned = rows.filter(row => Number(row.bonus || 0) > 0);
+  if (!earned.length) return 'No daily bonuses earned in this period.';
+  const groups = new Map();
+  earned.forEach(row => groups.set(row.bonus, (groups.get(row.bonus) || 0) + 1));
+  return Array.from(groups.entries()).sort((a,b) => Number(a[0])-Number(b[0])).map(([bonus, count]) => count + ' × ' + formatMoney(bonus)).join(', ') + ' = ' + formatMoney(earned.reduce((sum, row) => sum + Number(row.bonus || 0), 0));
 }
 function buildDailyBonusBreakdownHtml(data, startDate, endDate) {
-  if (!startDate || !endDate) return '';
-  const breakdown = getDailyBonusBreakdown(data, startDate, endDate);
-  let rows = '';
-  breakdown.rows.forEach(row => {
-    if (row.total > 0 || row.bonus > 0) {
-      rows += '<tr><td>' + escapeHtml(row.date) + '</td><td>' + formatMoney(row.total) + '</td><td>' + formatMoney(row.bonus) + '</td><td>' + (row.toNext ? formatMoney(row.toNext) + ' to next level' : 'Level reached') + '</td></tr>';
-    }
-  });
-  if (!rows) rows = '<tr><td colspan="4">No sales/bonus activity in this period.</td></tr>';
-  return '<h3>Daily Bonus Breakdown</h3>' +
-    '<p><strong>Daily bonuses earned this period:</strong> ' + escapeHtml(getDailyBonusSummaryText(breakdown)) + '</p>' +
-    '<table class="report-table"><thead><tr><th>Date</th><th>Closed sales</th><th>Daily bonus</th><th>Next level</th></tr></thead><tbody>' + rows + '</tbody></table>';
-}
-function getColdSalesForRange(data, startDate, endDate) {
-  return getClosedSalesForRange(data, startDate, endDate).filter(isColdBonusEligible);
-}
-function getColdBonusStats(data, startDate, endDate) {
-  const coldSales = getColdSalesForRange(data, startDate, endDate);
-  const coldTotal = coldSales.reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0);
-  const coldBonus = calculateColdBonus(coldTotal);
-  const nextCold = getNextColdTarget(coldTotal);
-  return { sales: coldSales, total: coldTotal, bonus: coldBonus, nextTarget: nextCold, toNext: Math.max(0, nextCold - coldTotal) };
-}
-function buildColdSalesDetailsHtml(data, startDate, endDate) {
-  const coldStats = getColdBonusStats(data, startDate, endDate);
-  let html = '<h3>Cold Eligible Sales Details</h3>' +
-    '<p><strong>Cold eligible total in this report period:</strong> ' + formatMoney(coldStats.total) + ' from ' + coldStats.sales.length + ' sale(s).</p>';
-  if (coldStats.total < COLD_DAILY_ELIGIBILITY_TARGET) {
-    html += '<p><strong>Cold threshold:</strong> ' + formatMoney(COLD_DAILY_ELIGIBILITY_TARGET - coldStats.total) + ' to $770.</p>';
-  } else {
-    html += '<p><strong>Cold threshold:</strong> $770 met.</p>';
-  }
-  if (coldStats.total < COLD_BONUS_START) {
-    html += '<p><strong>Cold bonus:</strong> ' + formatMoney(COLD_BONUS_START - coldStats.total) + ' to first $20 cold bonus.</p>';
-  } else {
-    html += '<p><strong>Cold bonus:</strong> ' + formatMoney(coldStats.bonus) + ' — ' + formatMoney(coldStats.toNext) + ' to next $10 cold bonus.</p>';
-  }
-  let rows = '';
-  coldStats.sales.sort((a, b) => String(getReportDateText(b.sale_date || b.last_status_change) || '').localeCompare(String(getReportDateText(a.sale_date || a.last_status_change) || '')) || String(a.business_name || '').localeCompare(String(b.business_name || ''))).forEach(donor => {
-    rows += '<li>ID: ' + escapeHtml(donor.card_id || '') +
-      ' — Amount: ' + formatMoney(getSaleAmount(donor) || 0) +
-      ' — Business: <strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong>' +
-      ' — Contact: ' + escapeHtml(getReportContactName(donor)) +
-      ' — Group: ' + escapeHtml(donor.history_group || 'cold_bonus_eligible') + '</li>';
-  });
-  if (!rows) rows = '<li>No cold eligible sale details found for this report period.</li>';
-  return html + '<ul class="report-list">' + rows + '</ul>';
+  if (!startDate || !endDate) return '<p class="report-line"><strong>Daily bonus breakdown:</strong> Choose a dated report to see day-by-day bonus totals.</p>';
+  const rows = getDailyBonusRows(data, startDate, endDate);
+  if (!rows.length) return '<p class="report-line"><strong>Daily bonus breakdown:</strong> No dated rows.</p>';
+  const body = rows.map(row => '<tr><td>' + escapeHtml(formatNzShortDate(row.date)) + '</td><td>' + formatMoney(row.total) + '</td><td>' + formatMoney(row.bonus) + '</td><td>' + (row.untilNext ? formatMoney(row.untilNext) + ' to next level' : 'Next level reached') + '</td></tr>').join('');
+  return '<p class="report-line"><strong>Daily bonuses this period:</strong> ' + escapeHtml(getDailyBonusSummaryText(rows)) + '</p>' +
+    '<table class="report-table"><thead><tr><th>Date</th><th>Closed sales</th><th>Daily bonus</th><th>Next level</th></tr></thead><tbody>' + body + '</tbody></table>';
 }
 function buildBonusSummaryHtml(data, startDate, endDate) {
   const scoped = Array.from(data || []);
-  const dailyStart = startDate || todayString();
-  const dailyEnd = endDate || dailyStart;
-  const dailyBreakdown = getDailyBonusBreakdown(scoped, dailyStart, dailyEnd);
-  const isSingleDay = dailyStart === dailyEnd;
-  const displaySales = isSingleDay ? dailyBreakdown.totalSales : getSalesTotalForRange(scoped, dailyStart, dailyEnd);
-  const displayDailyBonus = isSingleDay ? calculateDailyBonus(displaySales) : dailyBreakdown.totalBonus;
-  const nextDaily = isSingleDay ? getNextDailyBonusTarget(displaySales) : 0;
-  const dailyRemaining = isSingleDay ? Math.max(0, nextDaily - displaySales) : 0;
+  const isSingleDay = startDate && endDate && startDate === endDate;
+  const displayStart = startDate || todayString();
+  const displayEnd = endDate || displayStart;
+  const periodTotal = getSalesTotalForRange(scoped, displayStart, displayEnd);
+  const dailyRows = getDailyBonusRows(scoped, displayStart, displayEnd);
+  const dailyBonusTotal = isSingleDay ? calculateDailyBonus(periodTotal) : dailyRows.reduce((sum, row) => sum + Number(row.bonus || 0), 0);
+  const todayTotal = getSalesTotalForRange(scoped, todayString(), todayString());
+  const nextDaily = getNextDailyBonusTarget(isSingleDay ? periodTotal : todayTotal);
+  const dailyRemaining = Math.max(0, nextDaily - (isSingleDay ? periodTotal : todayTotal));
 
   const cycleRange = getPayCycleRange();
-  const cycleColdStats = getColdBonusStats(scoped, cycleRange.start, cycleRange.end);
-  const coldTotal = cycleColdStats.total;
-  const coldBonus = cycleColdStats.bonus;
-  const coldRemaining = cycleColdStats.toNext;
+  const cycleSales = getClosedSalesForRange(scoped, cycleRange.start, cycleRange.end);
+  const coldSales = cycleSales.filter(isColdBonusEligible);
+  const coldTotal = coldSales.reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0);
+  const coldBonus = calculateColdBonus(coldTotal);
+  const nextCold = getNextColdTarget(coldTotal);
+  const coldRemaining = Math.max(0, nextCold - coldTotal);
 
-  const dailyLabel = isSingleDay ? 'Daily sales' : 'Period sales';
-  const dailyBonusLabel = isSingleDay ? 'Daily bonus: ' : 'Daily bonuses total: ';
-  const dailySmall = isSingleDay ? (dailyRemaining ? formatMoney(dailyRemaining) + ' until next $10 daily bonus.' : 'Daily bonus level reached.') : getDailyBonusSummaryText(dailyBreakdown);
-  const coldStatus = coldTotal >= COLD_DAILY_ELIGIBILITY_TARGET ? 'Cold $770 threshold met.' : formatMoney(COLD_DAILY_ELIGIBILITY_TARGET - coldTotal) + ' to $770 cold threshold.';
-  const coldBonusStatus = coldTotal >= COLD_BONUS_START ? 'Cold bonus ' + formatMoney(coldBonus) + '. ' + formatMoney(coldRemaining) + ' to next $10 cold bonus.' : formatMoney(Math.max(0, COLD_BONUS_START - coldTotal)) + ' to first $20 cold bonus.';
+  const dailyTitle = isSingleDay ? 'Daily sales' : 'Period sales';
+  const dailyBonusLabel = isSingleDay ? 'Daily bonus: ' : 'Daily bonuses: ';
+  const dailySmall = isSingleDay ? (dailyRemaining ? formatMoney(dailyRemaining) + ' until next daily bonus level.' : 'Next daily bonus level reached.') : 'Daily bonus calculated day-by-day, not from period total.';
+  const coldStatus = coldTotal >= COLD_DAILY_ELIGIBILITY_TARGET ? 'Cold threshold met.' : formatMoney(COLD_DAILY_ELIGIBILITY_TARGET - coldTotal) + ' to $770 cold threshold.';
+  const coldBonusStatus = coldTotal >= COLD_BONUS_START ? formatMoney(coldRemaining) + ' to next $10 cold bonus.' : formatMoney(Math.max(0, COLD_BONUS_START - coldTotal)) + ' to first cold bonus.';
 
-  return '<div class="bonus-card"><strong>' + dailyLabel + '</strong><span class="bonus-main">' + formatMoney(displaySales) + '</span><div class="' + (displayDailyBonus ? 'bonus-good' : 'bonus-warn') + '">' + dailyBonusLabel + formatMoney(displayDailyBonus) + '</div><div class="bonus-small">' + escapeHtml(dailySmall) + '</div></div>' +
-    '<div class="bonus-card"><strong>Daily bonus levels</strong><div>$1,500 = $20</div><div>Every extra $500 = +$10</div><div class="bonus-small">Daily bonus resets each calendar day.</div></div>' +
-    '<div class="bonus-card"><strong>Cold pay-cycle sales</strong><span class="bonus-main">' + formatMoney(coldTotal) + '</span><div>' + cycleColdStats.sales.length + ' cold eligible sales in cycle</div><div class="' + (coldTotal >= COLD_DAILY_ELIGIBILITY_TARGET ? 'bonus-good' : 'bonus-warn') + '">' + coldStatus + '</div></div>' +
+  return '<div class="bonus-card"><strong>' + dailyTitle + '</strong><span class="bonus-main">' + formatMoney(periodTotal) + '</span><div class="' + (dailyBonusTotal ? 'bonus-good' : 'bonus-warn') + '">' + dailyBonusLabel + formatMoney(dailyBonusTotal) + '</div><div class="bonus-small">' + dailySmall + '</div></div>' +
+    '<div class="bonus-card"><strong>Daily bonus levels</strong><div>$1,500 = $20</div><div>Every extra $500 = +$10</div><div class="bonus-small">' + (isSingleDay ? 'Next level: ' + formatMoney(nextDaily) : getDailyBonusSummaryText(dailyRows)) + '</div></div>' +
+    '<div class="bonus-card"><strong>Cold pay-cycle sales</strong><span class="bonus-main">' + formatMoney(coldTotal) + '</span><div>' + coldSales.length + ' cold eligible sales in current cycle</div><div class="' + (coldTotal >= COLD_DAILY_ELIGIBILITY_TARGET ? 'bonus-good' : 'bonus-warn') + '">' + coldStatus + '</div></div>' +
     '<div class="bonus-card"><strong>Cold bonus</strong><span class="bonus-main">' + formatMoney(coldBonus) + '</span><div>$1,000 = $20, then +$10 per $400</div><div class="bonus-small">' + coldBonusStatus + '</div></div>';
 }
 function renderBonusStrip() {
@@ -1083,6 +1041,22 @@ function getCallHistoryText(donor) {
     return (index + 1) + '. ' + dt + ' — ' + (log.number_type || '') + ' ' + (log.number_called || '') + ' — status then: ' + (log.status_at_call || '');
   }).join('\n');
 }
+
+function normalisePhoneDigits(value) { return String(value || '').replace(/\D/g, ''); }
+function getPhoneCallLogHtml(donor, fieldName) {
+  const number = donor[fieldName] || '';
+  const fieldDigits = normalisePhoneDigits(number);
+  const label = fieldName === 'mobile' ? 'mobile' : 'main';
+  const logs = getCallLogsForDonor(donor).filter(log => {
+    const type = String(log.number_type || '').toLowerCase();
+    const calledDigits = normalisePhoneDigits(log.number_called || '');
+    return type.includes(label) || (fieldDigits && calledDigits && calledDigits === fieldDigits);
+  });
+  if (!logs.length) return '';
+  const bits = logs.slice(0, 3).map(log => getLastCalledDisplay(log.called_at) + ' ' + (log.status_at_call || '')).join('\n');
+  return '<div class="phone-call-log">Calls: ' + logs.length + '\n' + escapeHtml(bits) + '</div>';
+}
+
 function getNextActionDate(donor) { return String(donor.callback_date || '9999-12-31'); }
 function sortByNextActionDateThenBusiness(a,b) { const dateCompare = getNextActionDate(a).localeCompare(getNextActionDate(b)); if (dateCompare !== 0) return dateCompare; return String(a.business_name || '').localeCompare(String(b.business_name || '')); }
 function hasSelectedFollowUpDate(donor) { return String(donor.callback_date || '').trim() !== ''; }
@@ -1157,133 +1131,57 @@ function getAfterCallButtonsHtml(donor) {
     '</div>';
 }
 
-function noteLineIsUseless(line) {
-  const lower = String(line || '').toLowerCase().trim();
-  if (!lower) return true;
-
-  // These are import/source/research boilerplate lines that should not make the main row huge.
-  // Full raw notes are still preserved in Edit Contact / Open full notes.
-  const junkPatterns = [
-    'id visible / entered',
-    'details may need pcl lookup',
-    'if id is wrong',
-    'cold/promo flags not auto-set',
-    'rely on visible sales_history',
-    'saved recommended ask from earlier',
-    'ticket pitch:',
-    'suggested pitch:',
-    'suggested opening ask:',
-    'sponsor 3 local kids',
-    'sponsor 4 local kids',
-    'sponsor 5 local kids',
-    'sponsor 6 local kids',
-    'sponsor 10 local kids',
-    'source ',
-    'source:',
-    'source photo',
-    'source northland-',
-    'public source',
-    'public lookup',
-    'public recheck',
-    'public research:',
-    'sources:',
-    'https://',
-    'http://',
-    'www.',
-    'utm_source=',
-    'category:',
-    'address/location from card',
-    'priority:',
-    'card/ai note:',
-    'target:',
-    'angle:',
-    'phone:',
-    'history:',
-    'no visible sales history',
-    'visible card history',
-    'visible personal donor history'
-  ];
-  if (junkPatterns.some(pattern => lower.includes(pattern))) return true;
-
-  // Hide standalone donation-history style lines from notes because History already has its own column.
-  if (/^(h|g|f|c|1a)\s*\d{2,4}/i.test(lower)) return true;
-  if (/^\$?\d+\s*(h|g|f|c|1a)\s*\d{2,4}/i.test(lower)) return true;
-  if (/\b(1a|h|g|f|c)\s*2[0-6]/i.test(lower) && /\$\s*\d+/.test(lower)) return true;
-
-  return false;
-}
-function cleanNoteText(value) {
-  return String(value || '')
-    .replace(/\s*\|\s*/g, '\n')
-    .split(/\n+/)
-    .map(line => line.trim())
-    .filter(line => line && !noteLineIsUseless(line));
-}
 function getFirstUsefulLine(text, keywords, maxLength) {
-  const lines = cleanNoteText(text);
-  const lowerKeywords = (keywords || []).map(k => k.toLowerCase());
+  const source = String(text || '');
+  const lines = source.split(/[\n|]+/).map(x => x.trim()).filter(Boolean);
+  const lowerKeywords = keywords.map(k => k.toLowerCase());
   const found = lines.find(line => lowerKeywords.some(k => line.toLowerCase().includes(k)));
   return shortText(found || '', maxLength || 130);
 }
-function getFirstCleanLine(text, maxLength) {
-  const lines = cleanNoteText(text);
-  return shortText(lines[0] || '', maxLength || 130);
+function getLocalSchoolLine(donor) {
+  if (donor.local_school_angle) return donor.local_school_angle;
+  return getFirstUsefulLine([donor.notes, donor.phone_notes].join('\n'), ['school', 'kids from', 'local area', 'community'], 150);
 }
-function normaliseCompactLine(value) {
-  return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
-}
-function addCompactBlock(blocks, cssClass, title, text, maxLength) {
-  const clean = shortText(String(text || '').trim(), maxLength || 130);
-  if (!clean) return;
-  const key = normaliseCompactLine(clean);
-  if (!key || blocks.some(block => normaliseCompactLine(block.text) === key)) return;
-  blocks.push({ cssClass: cssClass || '', title: title, text: clean });
-}
-function cleanLocalSchoolAngle(value) {
-  let text = String(value || '').trim();
+function cleanCallNoteLine(line) {
+  let text = String(line || '').trim();
   if (!text) return '';
-
-  // Imported local angle sometimes included history/source text. Keep only the school/community part.
-  const markers = ['School/local angle:', 'Local school / pitch', 'Local pitch:', 'School angle:', 'Community angle:'];
-  for (const marker of markers) {
-    const idx = text.toLowerCase().indexOf(marker.toLowerCase());
-    if (idx >= 0) text = text.slice(idx + marker.length).trim();
-  }
-  text = text.split(/Public lookup|Public source|Source photo|Source |Category:|Address\/location/i)[0].trim();
-  text = text.replace(/^history:\s*[^.]*\.?\s*/i, '').trim();
-  if (noteLineIsUseless(text)) return '';
+  text = text.replace(/^\s*(ASK FOR|TARGET|ANGLE|PHONE|HISTORY|CARD\/AI NOTE|CARD COMMENT|SOURCE|PRIORITY|CATEGORY)\s*:\s*/i, '');
+  text = text.replace(/\s*\|\s*/g, ' — ');
+  const lower = text.toLowerCase();
+  const noisy = [
+    'id visible / entered', 'details may need pcl lookup', 'if id is wrong', 'source photo', 'source:', 'public source',
+    'http://', 'https://', 'www.', 'suggested pitch', 'ticket pitch', 'saved recommended ask', 'cold/promo flags',
+    'not auto-set', 'card/ai note', 'visible card history', 'history:', 'ask for:', 'target:', 'priority:', 'category:',
+    'source northland', 'source 102', 'source photo', 'photo 10'
+  ];
+  if (noisy.some(term => lower.includes(term))) return '';
   return text;
 }
-function getLocalSchoolLine(donor) {
-  return shortText(cleanLocalSchoolAngle(donor.local_school_angle), 130);
+function getCleanCallNote(donor) {
+  const lines = String(donor.notes || '').split(/[\n|]+/).map(cleanCallNoteLine).filter(Boolean);
+  const keywords = ['spoke', 'confirmed', 'yes', 'no answer', 'call', 'owner', 'manager', 'contact', 'asked', 'reception', 'meeting', 'decision', 'email', 'gentle', 'hospital', 'duplicate', 'wrong', 'disconnected'];
+  const priority = lines.find(line => keywords.some(k => line.toLowerCase().includes(k)));
+  return shortText(priority || lines[0] || '', 150);
 }
-function getImportantCallLine(donor) {
-  const noteText = donor.notes || '';
-  const urgent = getFirstUsefulLine(noteText, [
-    'be gentle', 'tread carefully', 'hospital', 'passed away', 'do not call', 'wrong number',
-    'disconnect', 'bad number', 'old owner', 'mismatch', 'risky', 'confirmed', 'spoke',
-    'asked', 'reception', 'not checked', 'meeting', 'decision', 'email back', 'will call',
-    'invoice', 'post', 'correct spelling', 'ask for', 'owner', 'manager', 'accounts'
-  ], 130);
-  if (urgent) return urgent;
-  return getFirstCleanLine(noteText, 110);
+function getCleanLocalSchoolLine(donor) {
+  let line = String(donor.local_school_angle || '').trim();
+  if (!line) line = getFirstUsefulLine([donor.notes, donor.phone_notes].join('\n'), ['school/local angle', 'school', 'kids from', 'local area', 'community'], 150);
+  line = line.replace(/^.*school\/local angle:\s*/i, '').replace(/^.*local school \/ pitch\s*/i, '').trim();
+  if (line.toLowerCase().startsWith('history:')) line = line.replace(/^history:.*?(school|local|community)/i, '$1');
+  return shortText(line, 150);
 }
 function buildNotesRecoveryHtml(donor) {
-  const blocks = [];
+  let html = '';
   const dupText = getDuplicateWarningText(donor);
-  const schoolLine = getLocalSchoolLine(donor);
-  const warningLine = donor.check_details_reason || getFirstUsefulLine([donor.notes, donor.phone_notes].join('\n'), ['wrong', 'disconnect', 'bad number', 'verify', 'check', 'duplicate', 'risky', 'old owner', 'mismatch'], 130);
-  const importantNote = getImportantCallLine(donor);
-  const emailNote = [donor.email_followup_stage, donor.email_followup_note].filter(Boolean).join(' — ');
-
-  addCompactBlock(blocks, 'duplicate-block', 'Duplicate / warning', dupText, 150);
-  addCompactBlock(blocks, '', 'Local pitch', schoolLine, 130);
-  addCompactBlock(blocks, 'check-details-block', 'Check / warning', warningLine, 130);
-  addCompactBlock(blocks, '', 'Call note', importantNote, 120);
-  addCompactBlock(blocks, 'phone-notes-block', 'Email follow-up', emailNote, 130);
-
-  if (!blocks.length) return '<span class="badge">No call notes</span>';
-  return blocks.map(block => '<div class="detail-block ' + block.cssClass + '"><span class="detail-title">' + escapeHtml(block.title) + '</span>' + escapeHtml(block.text) + '</div>').join('');
+  const schoolLine = getCleanLocalSchoolLine(donor);
+  const importantNote = getCleanCallNote(donor);
+  if (dupText) html += '<div class="detail-block duplicate-block"><span class="detail-title">Duplicate risk</span>' + escapeHtml(shortText(dupText, 180)) + '</div>';
+  if (schoolLine) html += '<div class="detail-block"><span class="detail-title">Local pitch</span>' + escapeHtml(shortText(schoolLine, 150)) + '</div>';
+  if (donor.check_details_reason) html += '<div class="detail-block check-details-block"><span class="detail-title">Check details</span>' + escapeHtml(shortText(donor.check_details_reason, 130)) + '</div>';
+  if (importantNote) html += '<div class="detail-block"><span class="detail-title">Call note</span>' + escapeHtml(shortText(importantNote, 150)) + '</div>';
+  if (donor.email_followup_note || donor.email_followup_stage) html += '<div class="detail-block phone-notes-block"><span class="detail-title">Email follow-up</span>' + escapeHtml(shortText([donor.email_followup_stage, donor.email_followup_note].filter(Boolean).join(' — '), 150)) + '</div>';
+  if (!html) html = '<span class="badge compact-muted">No call notes</span>';
+  return html;
 }
 
 function renderDonors() {
@@ -1315,8 +1213,8 @@ function renderDonors() {
     const noAnswerStageBadge = isNoAnswer(donor) ? '<br><span class="badge badge-yellow">No answer attempt ' + getNoAnswerStage(donor) + (isNoAnswerUnblocked(donor) ? ' / show ID' : '') + '</span>' : '';
     const noAnswerAction = getNoAnswerActionHtml(donor);
     const afterCallButtons = getAfterCallButtonsHtml(donor);
-    const phoneRecoveryBadge = ''; // phone/source details are hidden from the row; use Open full notes/Edit if needed.
-    const callCountBadge = ''; // call attempts now show beside the relevant phone number, not in the business/notes column.
+    const phoneRecoveryBadge = ''; // source/phone-notes kept in full edit view, not the row badge
+    const callCountBadge = ''; // call log now shows under the phone numbers
     const coldBonusBadge = isColdBonusEligible(donor) ? '<br><span class="badge badge-green">cold bonus eligible</span>' : '';
     const enteredText = donor.pcl_entered ? 'Yes' : 'No';
     const enteredButton = isClosedSale(donor) && !donor.pcl_entered ? '<br><button class="success-button" onclick="updatePclEntered(' + donor.id + ', true)">Mark Entered</button>' : '';
@@ -1336,8 +1234,8 @@ function renderDonors() {
         <td class="campaign-cell">${campaignText}</td>
         <td class="business-cell">${escapeHtml(donor.business_name || '') || '<span class="badge badge-yellow">Needs PCL match</span>'}${saleNumberBadge}${duplicateBadge}${checkBadge}${noAnswerStageBadge}${idOnlyBadge}${noPhoneBadge}${phoneRecoveryBadge}${callCountBadge}${coldBonusBadge}</td>
         <td class="contact-cell">${escapeHtml(contactDisplay)}${saleContactBadge}${personalBadge}</td>
-        <td class="phone-cell">${escapeHtml(donor.mobile || '')}<br>${mobileButton}${mobileCallLog}</td>
-        <td class="phone-cell">${escapeHtml(donor.office_phone || '')}<br>${mainButton}${mainCallLog}${noAnswerAction}</td>
+        <td class="phone-cell">${escapeHtml(donor.mobile || '')}<br>${mobileButton}${getPhoneCallLogHtml(donor, 'mobile')}</td>
+        <td class="phone-cell">${escapeHtml(donor.office_phone || '')}<br>${mainButton}${noAnswerAction}${getPhoneCallLogHtml(donor, 'office_phone')}</td>
         <td class="email-cell">${escapeHtml(donor.email || '')}${emailDate}${followUpDate}${emailStageBadge}</td>
         <td class="location-cell">${escapeHtml(donor.location || '')}</td>
         <td class="last-called-cell">${escapeHtml(getLastCalledDisplay(lastCallValue))}<br><span class="badge">${getCallAttemptCount(donor)} calls</span></td>
@@ -1699,10 +1597,8 @@ function buildReport(title, data, startDate, endDate, campaignOnly) {
   let reportData = Array.from(data);
   if (campaignOnly && currentCampaignFilter !== 'all') reportData = reportData.filter(donor => getCampaignCode(donor) === currentCampaignFilter);
 
-  const effectiveStart = startDate || null;
-  const effectiveEnd = endDate || null;
-  const worked = getReportDataByRange(reportData, effectiveStart, effectiveEnd);
-  const reportCallLogs = getReportCallLogs(reportData, effectiveStart, effectiveEnd);
+  const worked = getReportDataByRange(reportData, startDate, endDate);
+  const reportCallLogs = getReportCallLogs(reportData, startDate, endDate);
   const uniqueCalled = new Set(reportCallLogs.map(log => String(log.donor_id || log.card_id || ''))).size;
   const callQueue = reportData.filter(donor => isCallQueueContact(donor)).length;
   const noAnswer = worked.filter(donor => isNoAnswer(donor)).length;
@@ -1710,33 +1606,38 @@ function buildReport(title, data, startDate, endDate, campaignOnly) {
   const willCall = worked.filter(donor => isWillCallMe(donor)).length;
   const checkDetails = worked.filter(donor => isCheckDetails(donor)).length;
 
-  const emailsSentList = reportData.filter(donor => donorHasEmailActivityInRange(donor, effectiveStart, effectiveEnd));
-  const closedSales = reportData.filter(donor => donorHasSaleActivityInRange(donor, effectiveStart, effectiveEnd));
-  const coldSalesInReport = closedSales.filter(isColdBonusEligible);
+  const emailsSentList = reportData.filter(donor => donorHasEmailActivityInRange(donor, startDate, endDate));
+  const closedSales = reportData.filter(donor => donorHasSaleActivityInRange(donor, startDate, endDate));
+  const coldEligibleSales = closedSales.filter(isColdBonusEligible);
 
   emailsSentList.sort((a,b) => String(getReportDateText(b.email_sent_date || b.last_status_change || b.last_called) || '').localeCompare(String(getReportDateText(a.email_sent_date || a.last_status_change || a.last_called) || '')));
   closedSales.sort((a,b) => Number(a.sale_number || 999999) - Number(b.sale_number || 999999));
+  coldEligibleSales.sort((a,b) => String(b.sale_date || '').localeCompare(String(a.sale_date || '')) || String(a.business_name || '').localeCompare(String(b.business_name || '')));
 
   const closedSalesTotal = closedSales.reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0);
-  const coldSalesTotal = coldSalesInReport.reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0);
+  const coldEligibleTotal = coldEligibleSales.reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0);
   const contactsMoved = worked.length;
-
-  const bonusStart = effectiveStart || todayString();
-  const bonusEnd = effectiveEnd || todayString();
-  const dailyBonusBreakdownHtml = buildDailyBonusBreakdownHtml(reportData, bonusStart, bonusEnd);
-  const coldSalesDetailsHtml = buildColdSalesDetailsHtml(reportData, effectiveStart, effectiveEnd);
 
   let closedSalesHtml = '';
   closedSales.forEach((donor) => {
-    const coldBadge = isColdBonusEligible(donor) ? ' — Cold eligible' : '';
     closedSalesHtml += '<li>ID: ' + escapeHtml(donor.card_id || '') +
       ' — Sale #: ' + escapeHtml(donor.sale_number || '') +
       ' — Amount: ' + formatMoney(getSaleAmount(donor) || 0) +
-      coldBadge +
       ' — Business: <strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong>' +
-      ' — Contact: ' + escapeHtml(getReportContactName(donor)) + '</li>';
+      ' — Contact: ' + escapeHtml(getReportContactName(donor)) +
+      (isColdBonusEligible(donor) ? ' — <strong>Cold eligible</strong>' : '') + '</li>';
   });
   if (!closedSalesHtml) closedSalesHtml = '<li>No closed sale details found for this report period.</li>';
+
+  let coldSalesHtml = '';
+  coldEligibleSales.forEach((donor) => {
+    coldSalesHtml += '<li>ID: ' + escapeHtml(donor.card_id || '') +
+      ' — Amount: ' + formatMoney(getSaleAmount(donor) || 0) +
+      ' — Business: <strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong>' +
+      ' — Date: ' + escapeHtml(formatNzShortDate(donor.sale_date || donor.last_status_change || '')) +
+      ' — Group: ' + escapeHtml(donor.history_group || 'cold_bonus_eligible') + '</li>';
+  });
+  if (!coldSalesHtml) coldSalesHtml = '<li>No cold eligible sales found for this report period.</li>';
 
   let emailsSentHtml = '';
   emailsSentList.forEach(donor => {
@@ -1761,8 +1662,9 @@ function buildReport(title, data, startDate, endDate, campaignOnly) {
 
   const reportBox = document.getElementById('reportBox'); showReportOnly();
   reportBox.innerHTML = '<h2>' + escapeHtml(title) + '</h2>' +
-    (effectiveStart && effectiveEnd ? '<p><strong>Period:</strong> ' + escapeHtml(effectiveStart) + ' to ' + escapeHtml(effectiveEnd) + '</p>' : '') +
-    '<div class="bonus-strip">' + buildBonusSummaryHtml(reportData, bonusStart, bonusEnd) + '</div>' +
+    (startDate && endDate ? '<p><strong>Period:</strong> ' + escapeHtml(startDate) + ' to ' + escapeHtml(endDate) + '</p>' : '') +
+    '<div class="bonus-strip">' + buildBonusSummaryHtml(reportData, startDate || todayString(), endDate || todayString()) + '</div>' +
+    '<h3>Daily Bonus Breakdown</h3>' + buildDailyBonusBreakdownHtml(reportData, startDate, endDate) +
     '<p class="report-line"><strong>Total contacts in scope:</strong> ' + reportData.length + '</p>' +
     '<p class="report-line"><strong>Still in call queue / not called:</strong> ' + callQueue + '</p>' +
     '<p class="report-line"><strong>Contacts moved / worked:</strong> ' + contactsMoved + '</p>' +
@@ -1775,15 +1677,15 @@ function buildReport(title, data, startDate, endDate, campaignOnly) {
     '<p class="report-line"><strong>Emails sent:</strong> ' + emailsSentList.length + '</p>' +
     '<p class="report-line"><strong>Closed sales:</strong> ' + closedSales.length + '</p>' +
     '<p class="report-line"><strong>Total sales amount:</strong> ' + formatMoney(closedSalesTotal) + '</p>' +
-    '<p class="report-line"><strong>Cold eligible sales in this report:</strong> ' + coldSalesInReport.length + ' / ' + formatMoney(coldSalesTotal) + '</p>' +
-    dailyBonusBreakdownHtml +
+    '<p class="report-line"><strong>Cold eligible sales in this report:</strong> ' + coldEligibleSales.length + ' / ' + formatMoney(coldEligibleTotal) + '</p>' +
     '<h3>Campaign Breakdown</h3>' + getCampaignBreakdownHtml(worked, closedSales, emailsSentList, reportCallLogs) +
-    coldSalesDetailsHtml +
     '<h3>Closed Sales Details</h3><ul class="report-list">' + closedSalesHtml + '</ul>' +
+    '<h3>Cold Eligible Sales Details</h3><ul class="report-list">' + coldSalesHtml + '</ul>' +
     '<h3>Email Sent Details</h3><ul class="report-list">' + emailsSentHtml + '</ul>' +
     '<h3>Call Attempts Logged</h3><ul class="report-list">' + callHistoryHtml + '</ul>' +
     '<div class="no-print" style="margin-top: 20px;"><button onclick="backToCallQueue()">Back to Call Queue</button><button onclick="window.print()">Print / Save as PDF</button></div>';
 }
+
 function setDefaultReportDate() { const input = document.getElementById('reportDate'); if (input && !input.value) input.value = todayString(); }
 function showDailyReport() { const today = todayString(); const input = document.getElementById('reportDate'); if (input) input.value = today; buildReport('Daily Fundraising Report - All Campaigns', allDonors, today, today, false); }
 function showSelectedDailyReport(campaignOnly) { const input = document.getElementById('reportDate'); const selectedDate = input && input.value ? input.value : todayString(); const label = campaignOnly && currentCampaignFilter !== 'all' ? currentCampaignFilter : 'All Campaigns'; buildReport('Daily Fundraising Report - ' + label, allDonors, selectedDate, selectedDate, campaignOnly); }
