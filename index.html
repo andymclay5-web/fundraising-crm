@@ -19,7 +19,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
 .form-box { padding: 12px; border: 1px solid #ccc; background: white; }
 .id-cell { width: 58px; max-width: 58px; }
-.campaign-cell { width: 80px; max-width: 80px; font-size: 10px; }
+.campaign-cell { width: 86px; max-width: 86px; font-size: 10px; }
 .business-cell { width: 145px; max-width: 145px; }
 .contact-cell { width: 105px; max-width: 105px; }
 .phone-cell { width: 100px; max-width: 100px; }
@@ -30,13 +30,11 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 .pcl-cell { width: 50px; text-align: center; }
 .sales-history-cell { width: 135px; max-width: 135px; font-size: 10px; white-space: pre-wrap; word-break: break-word; }
 .notes-cell { width: 330px; max-width: 330px; font-size: 10px; }
-.notes-box { width: 285px; min-height: 72px; }
 .edit-readonly-box { width: 95%; min-height: 70px; background: #f8f8f8; color: #333; }
 .detail-block { margin-top: 5px; padding: 5px; border: 1px solid #ddd; background: #fafafa; white-space: pre-wrap; word-break: break-word; }
 .detail-title { font-weight: bold; color: #1f4e79; display: block; margin-bottom: 2px; }
 .phone-notes-block { background: #fff9e6; border-color: #e3c86b; }
 .check-details-block { background: #fdecec; border-color: #e0a1a1; }
-.call-history-block { background: #eef7ff; border-color: #9cc7e8; }
 .duplicate-block { background: #fff0f0; border-color: #d88; }
 .ask-cell { width: 82px; max-width: 82px; font-size: 11px; }
 .ask-label { font-weight: bold; display: block; margin-bottom: 2px; }
@@ -67,7 +65,6 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 .report-line { margin-bottom: 6px; }
 .report-list li { margin-bottom: 7px; }
 .report-table { margin: 10px 0 18px 0; font-size: 12px; }
-
 .control-strip { margin: 8px 0 10px 0; padding: 8px; background: #fff; border: 1px solid #ddd; font-size: 12px; }
 .control-strip select, .control-strip input { margin: 2px 6px 2px 2px; padding: 4px; }
 .panel-button { font-weight: bold; }
@@ -79,8 +76,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 .email-stage-select { width: 128px; font-size: 10px; margin-top: 2px; }
 .phone-call-log { margin-top:4px; padding:3px; border:1px solid #9cc7e8; background:#eef7ff; font-size:10px; line-height:1.2; white-space:pre-wrap; word-break:break-word; }
 .compact-muted { color:#666; font-size:10px; }
-
-.bonus-strip { display: grid; grid-template-columns: repeat(4, minmax(180px, 1fr)); gap: 8px; margin: 8px 0 10px 0; }
+.bonus-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin: 8px 0 10px 0; }
 .bonus-card { background: white; border: 1px solid #ccc; padding: 8px; font-size: 12px; min-height: 54px; }
 .bonus-card strong { display: block; font-size: 13px; margin-bottom: 3px; color: #1f4e79; }
 .bonus-main { font-size: 16px; font-weight: bold; }
@@ -88,6 +84,11 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 .bonus-warn { color: #8a5a00; font-weight: bold; }
 .bonus-small { font-size: 10px; color: #555; margin-top: 3px; }
 .sale-locked-badge { display: inline-block; margin-top: 3px; color: #145c2b; font-weight: bold; font-size: 10px; }
+.previous-daily-controls { display:none; margin-left:8px; padding:4px; background:#fff; border:1px solid #ccc; }
+.target-table { width:100%; border-collapse:collapse; margin-top:4px; font-size:10px; }
+.target-table th, .target-table td { border:1px solid #ddd; padding:3px; text-align:left; }
+.target-table th { background:#e9eef5; color:#222; }
+.target-progress { font-size:10px; color:#555; margin-top:3px; }
 @media print {
   body { background: white; padding: 0; }
   h1, #topButtons, #searchArea, #campaignArea, #formArea, #crmTable, #errorBox, #warnBox, #resultsInfo, #listControlArea { display: none !important; }
@@ -97,7 +98,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.5 stable rebuild</h1>
+<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.5.6 campaign targets + lifecycle</h1>
 <div id="errorBox"></div>
 <div id="warnBox"></div>
 
@@ -106,13 +107,19 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
   <select id="campaignFilter" onchange="setCampaignFilter(this.value)">
     <option value="all">All Campaigns</option>
   </select>
-  <span class="help-text">Autism tickets = $65. GKC / Brain Injured Children's Trust tickets = $70. Duplicate-risk rows show matching/similar card IDs before calling.</span>
+  <label style="margin-left:8px; font-size:12px; background:#fff; border:1px solid #ccc; padding:4px; display:inline-block;">
+    <input type="checkbox" id="includeFinishedCampaigns" onchange="setIncludeFinishedCampaigns(this.checked)"> Show finished campaigns in active working lists
+  </label>
+  <span class="help-text">Autism tickets = $65. GKC / Brain Injured Children’s Trust tickets = $70. Cold bonus logic reads both new cold_bonus_eligible and legacy cold_card. History sections recognise exact groups: TAPS, Comparative, Recent TAPS, Recent Comparative, 21-22, Cold, Pre-2020. Put Aside, Check Number, and No/Recall lists keep weaker or rejected cards accessible instead of deleting them. Finished campaigns hide from normal active working lists only; Email Follow Up, Closed Sales To Enter, All Contacts, reports, search, and selected-campaign views stay accessible for late sales/emails/unclaimed sales.</span>
 </div>
 
 <div id="bonusStrip" class="bonus-strip"></div>
 
 <div id="topButtons" class="top-bar">
   <button onclick="setFilter('callQueue')">Call Queue / Not Called</button>
+  <button onclick="setFilter('coldCards')">Cold / Pre-2020 Cards</button>
+  <button onclick="setFilter('putAside')">Put Aside / Later</button>
+  <button onclick="setFilter('noCards')">No / Recall List</button>
   <button onclick="setFilter('duplicateRisk')">Duplicate Risks</button>
   <button onclick="setFilter('callbacks')">Callbacks</button>
   <button onclick="setFilter('willCallMe')">Will Call Me</button>
@@ -121,16 +128,18 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
   <button onclick="setFilter('noAnswerUnblocked')">No Answer - show caller ID</button>
   <button onclick="setFilter('alreadyCalled')">Already Called / Call History</button>
   <button onclick="setFilter('checkDetails')">Check Details</button>
+  <button onclick="setFilter('checkNumber')">Check Number / Wrong Number</button>
   <button onclick="setFilter('closedSales')">Closed Sales To Enter</button>
   <button onclick="setFilter('all')">All Contacts</button>
-  <button onclick="showDailyReport()">Daily Report Today</button>
+  <button onclick="showDailyReport()">Daily Report</button>
+  <button onclick="togglePreviousDailyControls()">Previous Daily Report</button>
   <button onclick="showPayCycleReport()">Pay Cycle Report</button>
   <button onclick="showCampaignReport()">Campaign Report</button>
-  <span style="display:inline-block; margin-left:8px; padding:4px; background:#fff; border:1px solid #ccc;">
-    <strong>Daily by date:</strong>
+  <span id="previousDailyControls" class="previous-daily-controls">
+    <strong>Date:</strong>
     <input type="date" id="reportDate" class="date-input">
-    <button onclick="showSelectedDailyReport(false)">Show Date - All</button>
-    <button onclick="showSelectedDailyReport(true)">Show Date - Campaign</button>
+    <button onclick="showSelectedDailyReport(false)">Show All</button>
+    <button onclick="showSelectedDailyReport(true)">Show Campaign</button>
   </span>
 </div>
 
@@ -138,7 +147,6 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
   <input id="searchBox" placeholder="Fast search: ID, business, contact, mobile, main phone, notes..." oninput="searchContacts()">
   <button onclick="clearSearch()">Clear Search</button>
 </div>
-
 
 <div id="listControlArea" class="control-strip">
   <strong>Working list:</strong>
@@ -168,11 +176,11 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
       <option value="strongResearch">Strong research/capacity signal</option>
       <option value="localSchool">Local school/community angle</option>
       <option value="hasHistory">Any donation/sales history</option>
-      <option value="tapsLastYear">TAPS / last-year same-charity</option>
-      <option value="comparativeRecent">Recent comparative donors</option>
-      <option value="sameCharity3Years">This-charity history last 3 years</option>
-      <option value="comp2324">Comparative 2023–2024</option>
-      <option value="all2122">All-history 2021–2022</option>
+      <option value="tapsLastYear">TAPS / this-charity last year</option>
+      <option value="comparativeRecent">Comparative / other-charity recent</option>
+      <option value="sameCharity3Years">Recent TAPS / this-charity 2023-2024</option>
+      <option value="comp2324">Recent Comparative 2023-2024</option>
+      <option value="all2122">21-22 history</option>
       <option value="pre2020Cold">Pre-2020 / cold</option>
       <option value="coldNoHistory">Cold / no useful history</option>
     </select>
@@ -203,10 +211,14 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
     <div class="form-row"><input id="campaign_code" placeholder="Campaign Code" value="1A2601"></div>
     <div class="form-row"><input id="campaign_area" placeholder="Campaign Area / Region"></div>
     <div class="form-row"><input id="campaign_year" placeholder="Campaign Year" type="number" value="2026"></div>
+    <div class="form-row"><label><input type="checkbox" id="add_cold_bonus_eligible"> Cold / pre-2020 / no sale since 2020</label></div>
+    <div class="form-row"><input id="add_history_group" placeholder="History group: Cold, TAPS, Comparative, Recent TAPS, Recent Comparative, 21-22, Pre-2020"></div>
     <div class="form-row">
       <select id="status">
         <option value="Not Called">Not Called</option>
         <option value="Check Details">Check Details</option>
+        <option value="Check Number">Check Number</option>
+        <option value="Put Aside">Put Aside</option>
       </select>
     </div>
     <div class="form-row"><textarea id="notes" placeholder="Notes"></textarea></div>
@@ -227,7 +239,6 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
     <div class="form-row"><input id="edit_mobile" placeholder="Mobile"></div>
     <div class="form-row"><input id="edit_office_phone" placeholder="Main Number"></div>
     <div class="form-row"><input id="edit_email" placeholder="Email"></div>
-
     <div class="form-row">
       <select id="edit_email_followup_stage">
         <option value="">Email follow-up stage</option>
@@ -246,7 +257,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
     <div class="form-row"><input id="edit_last_email_followup_date" type="date" placeholder="Last email follow-up date"></div>
     <div class="form-row"><textarea id="edit_email_followup_note" placeholder="Email follow-up note / latest situation"></textarea></div>
     <div class="form-row"><input id="edit_local_school_angle" placeholder="Local school / community pitch line"></div>
-    <div class="form-row"><input id="edit_history_group" placeholder="History group e.g. cold, recent donor, comparative"></div>
+    <div class="form-row"><input id="edit_history_group" placeholder="History group e.g. Cold / no sale since 2020, TAPS, Comparative"></div>
     <div class="form-row"><input id="edit_contactability_status" placeholder="Contactability e.g. contact found, no phone, public email"></div>
     <div class="form-row"><input id="edit_research_strength" placeholder="Research strength e.g. strong public signal"></div>
     <div class="form-row"><input id="edit_business_category" placeholder="Business category"></div>
@@ -262,7 +273,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
       </select>
     </div>
     <div class="form-row"><label><input type="checkbox" id="edit_personal_donor"> Personal donor / individual donation</label></div>
-    <div class="form-row"><label><input type="checkbox" id="edit_cold_bonus_eligible"> Cold bonus eligible / no sale since 2020</label></div>
+    <div class="form-row"><label><input type="checkbox" id="edit_cold_bonus_eligible"> Cold card / cold bonus eligible / no sale since 2020</label></div>
     <div class="form-row"><input id="edit_charity_name" placeholder="Charity"></div>
     <div class="form-row"><input id="edit_campaign_code" placeholder="Campaign Code"></div>
     <div class="form-row"><input id="edit_campaign_area" placeholder="Campaign Area / Region"></div>
@@ -328,11 +339,17 @@ const COLD_BONUS_START = 1000;
 const COLD_BONUS_START_BONUS = 20;
 const COLD_BONUS_STEP = 400;
 const COLD_BONUS_STEP_BONUS = 10;
+const CAMPAIGN_TARGETS = {
+  '1A2601': { label: 'Northland Autism', target: 40000, charity: 'Autism NZ', callingEndDate: '2026-06-26', eventDate: '2026-06-27' },
+  '1A2621': { label: 'North Shore Autism', target: 700, charity: 'Autism NZ', callingEndDate: '2026-06-26', eventDate: '2026-06-28' },
+  'G2614': { label: 'GKC Christchurch', target: 700, charity: 'Great Kiwi Circus / Brain Injured Children’s Trust', callingEndDate: '', eventDate: '' }
+};
 
 let currentFilter = 'callQueue';
 let currentCampaignFilter = 'all';
 let currentSortMode = 'default';
 let currentSectionMode = 'all';
+let includeFinishedCampaigns = false;
 let formsOpen = false;
 let allDonors = [];
 let callLogs = [];
@@ -342,49 +359,46 @@ let searchTimer = null;
 let currentRenderLimit = 70;
 let currentCallingId = null;
 let pinnedContactId = null;
-let pinnedContactReason = "";
+let pinnedContactReason = '';
 let pendingSaleAmounts = new Map();
 let optionalDonorColumns = {
   sale_amount: false,
   entered_sale_amount: false,
   donation: false,
-  cold_bonus_eligible: false
+  cold_bonus_eligible: false,
+  cold_card: false,
+  promotion_eligible: false
 };
 const INITIAL_RENDER_LIMIT = 70;
 const RENDER_STEP = 70;
 
-function showError(message) {
-  const box = document.getElementById('errorBox');
-  box.textContent = message;
-  box.style.display = 'block';
-}
+function showError(message) { const box = document.getElementById('errorBox'); box.textContent = message; box.style.display = 'block'; }
 function clearError() { const box = document.getElementById('errorBox'); box.textContent = ''; box.style.display = 'none'; }
 function showWarning(message) { const box = document.getElementById('warnBox'); box.textContent = message; box.style.display = 'block'; }
 function clearWarning() { const box = document.getElementById('warnBox'); box.textContent = ''; box.style.display = 'none'; }
 
 function todayString() {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return year + '-' + month + '-' + day;
+  return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 }
 function localDateString(value) {
   if (!value) return '';
   const date = new Date(value);
   if (isNaN(date.getTime())) return String(value).slice(0, 10);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return year + '-' + month + '-' + day;
+  return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
 }
 function escapeHtml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
+  return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+}
+function isTrueFlag(value) {
+  if (value === true || value === 1) return true;
+  const text = String(value ?? '').trim().toLowerCase();
+  return ['true', 't', 'yes', 'y', '1'].includes(text);
+}
+function isFalseFlag(value) {
+  if (value === false || value === 0) return true;
+  const text = String(value ?? '').trim().toLowerCase();
+  return ['false', 'f', 'no', 'n', '0'].includes(text);
 }
 function normaliseStatus(status) { return String(status || '').trim().toLowerCase(); }
 function hasCardId(donor) { return String(donor.card_id || '').trim() !== ''; }
@@ -394,21 +408,16 @@ function isCallback(donor) { const s = normaliseStatus(donor.status); return s =
 function isWillCallMe(donor) { const s = normaliseStatus(donor.status); return s === 'will call me' || s.includes('will call'); }
 function isEmailFollowUp(donor) {
   const s = normaliseStatus(donor.status);
-
-  // Do not keep finished outcomes in the Email Follow Up working list just because they once had an email date/stage.
-  // Closed sales/personal donations and No/Not Interested/declined/refused are final outcomes, not active email follow-ups.
   if (isClosedSale(donor) || isNoStatus(donor)) return false;
-
   const stage = String(donor.email_followup_stage || '').trim();
   return s === 'email sent' || s.includes('email') || stage !== '' || !!donor.email_sent_date;
 }
-function isCheckDetails(donor) { const s = normaliseStatus(donor.status); return s === 'check details' || s === 'check number' || s.includes('check detail') || s.includes('check number'); }
-function isNoAnswerUnblocked(donor) { const s = normaliseStatus(donor.status); return s.includes('no answer') && (s.includes('unblocked') || s.includes('caller id') || s.includes('show id')) ; }
+function isCheckDetails(donor) { const s = normaliseStatus(donor.status); return s === 'check details' || s.includes('check detail'); }
+function isCheckNumber(donor) { const s = normaliseStatus(donor.status); return s === 'check number' || s.includes('check number') || s.includes('wrong number') || s.includes('disconnected') || s.includes('bad number'); }
+function isPutAside(donor) { const s = normaliseStatus(donor.status); return s === 'put aside' || s.includes('put aside') || s.includes('maybe later') || s.includes('low priority') || s.includes('parked') || s.includes('not worth'); }
+function isNoAnswerUnblocked(donor) { const s = normaliseStatus(donor.status); return s.includes('no answer') && (s.includes('unblocked') || s.includes('caller id') || s.includes('show id')); }
 function isNoAnswerBlocked(donor) { return isNoAnswer(donor) && !isNoAnswerUnblocked(donor); }
-function isNoAnswer(donor) {
-  const s = normaliseStatus(donor.status);
-  return s === 'no answer' || s === 'no answer 2' || s === 'no answer 3' || s === 'no answer - unblocked id' || s.includes('no answer');
-}
+function isNoAnswer(donor) { const s = normaliseStatus(donor.status); return s === 'no answer' || s === 'no answer 2' || s === 'no answer 3' || s === 'no answer - unblocked id' || s.includes('no answer'); }
 function getNoAnswerStage(donor) {
   const s = normaliseStatus(donor.status);
   if (!isNoAnswer(donor)) return 0;
@@ -425,20 +434,13 @@ function getNoAnswerStatusForStage(stage) {
 }
 function isAlreadyWorkedStatus(donor) {
   const s = normaliseStatus(donor.status);
-  return isClosedSale(donor) || isNoStatus(donor) || isCallback(donor) || isWillCallMe(donor) || isEmailFollowUp(donor) || isCheckDetails(donor) || isNoAnswer(donor) || s === 'follow up';
+  return isClosedSale(donor) || isNoStatus(donor) || isCallback(donor) || isWillCallMe(donor) || isEmailFollowUp(donor) || isCheckDetails(donor) || isCheckNumber(donor) || isPutAside(donor) || isNoAnswer(donor) || s === 'follow up';
 }
-function isCallQueueContact(donor) {
-  if (!hasCardId(donor)) return false;
-  if (isAlreadyWorkedStatus(donor)) return false;
-  return true;
-}
+function isCallQueueContact(donor) { return hasCardId(donor) && !isAlreadyWorkedStatus(donor); }
 function getCampaignCode(donor) { return String(donor.campaign_code || DEFAULT_CAMPAIGN_CODE).trim().toUpperCase(); }
 function getCampaignLabel(donor) {
   const code = getCampaignCode(donor);
-  const area = donor.campaign_area || '';
-  const charity = donor.charity_name || DEFAULT_CHARITY_NAME;
-  const year = donor.campaign_year || DEFAULT_CAMPAIGN_YEAR;
-  return [code, charity, year, area].filter(Boolean).join(' | ');
+  return [code, donor.charity_name || DEFAULT_CHARITY_NAME, donor.campaign_year || DEFAULT_CAMPAIGN_YEAR, donor.campaign_area || ''].filter(Boolean).join(' | ');
 }
 function isAutismCampaign(donor) {
   const charity = String(donor.charity_name || DEFAULT_CHARITY_NAME).toLowerCase();
@@ -453,63 +455,34 @@ function isGkcCampaign(donor) {
 }
 function usesTicketPitch(donor) { return isAutismCampaign(donor) || isGkcCampaign(donor); }
 function getTicketAmount(donor) { if (isGkcCampaign(donor)) return GKC_TICKET_AMOUNT; if (isAutismCampaign(donor)) return AUTISM_TICKET_AMOUNT; return 0; }
-function formatMoney(value) {
-  const n = Number(value || 0);
-  return '$' + Math.round(n).toLocaleString('en-NZ');
-}
+function formatMoney(value) { const n = Number(value || 0); return '$' + Math.round(n).toLocaleString('en-NZ'); }
 function parseMoneyNumber(value) {
   if (value === null || value === undefined || value === '') return 0;
-  const cleaned = String(value).replace(/[^0-9.]/g, '');
-  const n = Number(cleaned);
+  const n = Number(String(value).replace(/[^0-9.]/g, ''));
   return Number.isFinite(n) ? n : 0;
 }
-function hasOptionalDonorColumn(columnName) {
-  return !!optionalDonorColumns[columnName];
-}
+function hasOptionalDonorColumn(columnName) { return !!optionalDonorColumns[columnName]; }
 function detectOptionalDonorColumns() {
   const sampleRows = allDonors || [];
-  ['sale_amount', 'entered_sale_amount', 'donation', 'cold_bonus_eligible'].forEach(columnName => {
+  ['sale_amount', 'entered_sale_amount', 'donation', 'cold_bonus_eligible', 'cold_card', 'promotion_eligible'].forEach(columnName => {
     optionalDonorColumns[columnName] = sampleRows.some(row => Object.prototype.hasOwnProperty.call(row, columnName));
   });
 }
-function getPendingSaleAmount(id) {
-  const key = Number(id);
-  if (!pendingSaleAmounts.has(key)) return 0;
-  return parseMoneyNumber(pendingSaleAmounts.get(key));
-}
-function cacheSaleAmount(id, value) {
-  pendingSaleAmounts.set(Number(id), value);
-  const donor = allDonors.find(item => Number(item.id) === Number(id));
-  if (donor) donor._pendingSaleAmount = value;
-}
-function clearPendingSaleAmount(id) {
-  pendingSaleAmounts.delete(Number(id));
-}
+function getPendingSaleAmount(id) { const key = Number(id); return pendingSaleAmounts.has(key) ? parseMoneyNumber(pendingSaleAmounts.get(key)) : 0; }
+function cacheSaleAmount(id, value) { pendingSaleAmounts.set(Number(id), value); const donor = allDonors.find(item => Number(item.id) === Number(id)); if (donor) donor._pendingSaleAmount = value; }
+function clearPendingSaleAmount(id) { pendingSaleAmounts.delete(Number(id)); }
 function getSaleAmount(donor) {
   if (!donor) return 0;
   const pending = getPendingSaleAmount(donor.id);
   if (pending > 0) return pending;
-
-  const candidates = [
-    donor.sale_amount,
-    donor.entered_sale_amount,
-    donor.donation,
-    donor.amount,
-    donor.suggested_ask
-  ];
-  for (const value of candidates) {
-    const n = parseMoneyNumber(value);
-    if (n > 0) return n;
-  }
+  const candidates = [donor.sale_amount, donor.entered_sale_amount, donor.donation, donor.amount, donor.suggested_ask];
+  for (const value of candidates) { const n = parseMoneyNumber(value); if (n > 0) return n; }
   return Number(getAskAmount(donor) || 0);
 }
 function getAskInputValue(donor) {
   const pending = getPendingSaleAmount(donor.id);
   if (pending > 0) return pending;
-  if (isClosedSale(donor)) {
-    const saleAmount = getSaleAmount(donor);
-    if (saleAmount > 0) return saleAmount;
-  }
+  if (isClosedSale(donor)) { const saleAmount = getSaleAmount(donor); if (saleAmount > 0) return saleAmount; }
   const savedAsk = parseMoneyNumber(donor.suggested_ask);
   if (savedAsk > 0) return savedAsk;
   return getAskAmount(donor) || '';
@@ -518,13 +491,10 @@ function getEnteredSaleAmountForStatusUpdate(id, donor) {
   const input = document.getElementById('sale-amount-' + id);
   const fromInput = input ? parseMoneyNumber(input.value) : 0;
   if (fromInput > 0) return fromInput;
-
   const fromPending = getPendingSaleAmount(id);
   if (fromPending > 0) return fromPending;
-
   const fromExisting = getSaleAmount(donor);
   if (fromExisting > 0) return fromExisting;
-
   return getAskAmount(donor) || 0;
 }
 function addOptionalSaleAmountFields(updateData, donor, amount) {
@@ -535,19 +505,45 @@ function addOptionalSaleAmountFields(updateData, donor, amount) {
   if (hasOptionalDonorColumn('entered_sale_amount')) updateData.entered_sale_amount = lockedAmount;
   if (hasOptionalDonorColumn('donation')) updateData.donation = lockedAmount;
 }
+function getTextForColdCheck(donor) {
+  return [donor.history_group, donor.sales_history, donor.notes, donor.phone_notes, donor.check_details_reason].join(' ').toLowerCase();
+}
+function getExplicitColdYear(donor) {
+  const candidates = [donor.last_any_sale_year, donor.last_autism_sale_year];
+  for (const value of candidates) { const n = Number(value || 0); if (Number.isFinite(n) && n > 0) return n; }
+  return 0;
+}
 function isColdBonusEligible(donor) {
   if (!donor) return false;
-  if (donor.cold_bonus_eligible === true || donor.cold_bonus_eligible === 'true') return true;
 
-  // Keep this cautious. Do not use old cold_card/promotion_eligible flags or noisy note text.
-  // Count only explicit reliable fields.
-  const historyGroup = String(donor.history_group || '').toLowerCase();
-  if (historyGroup.includes('cold') || historyGroup.includes('no sale since 2020') || historyGroup.includes('pre-2020') || historyGroup.includes('pre 2020')) return true;
+  // v18.5.1 fix: recognise both the new explicit cold_bonus_eligible field and the older cold_card field.
+  // This is what makes the older imported cold batches and the new researched Northland cold cards show in cold lists and bonus reports.
+  if (isTrueFlag(donor.cold_bonus_eligible)) return true;
+  if (isTrueFlag(donor.cold_card)) return true;
+
+  const text = getTextForColdCheck(donor);
+  if (text.includes('cold / no sale since 2020')) return true;
+  if (text.includes('no sale since 2020')) return true;
+  if (text.includes('pre-2020') || text.includes('pre 2020')) return true;
+  if (text.includes('cold bonus eligible')) return true;
+  if (text.includes('cold card') || text.includes('cold-card')) return true;
+  if (text.includes('no visible sale history') || text.includes('no useful history') || text.includes('no sale history')) return true;
 
   const explicitYear = Number(donor.last_any_sale_year || 0);
   if (explicitYear && explicitYear <= 2020) return true;
 
   return false;
+}
+function getColdReason(donor) {
+  if (isTrueFlag(donor.cold_bonus_eligible)) return 'cold_bonus_eligible = true';
+  if (isTrueFlag(donor.cold_card)) return 'cold_card = true';
+  const explicitYear = Number(donor.last_any_sale_year || 0);
+  if (explicitYear && explicitYear <= 2020) return 'last sale year ' + explicitYear;
+  const text = getTextForColdCheck(donor);
+  if (text.includes('no sale since 2020')) return 'no sale since 2020';
+  if (text.includes('cold')) return 'cold text/history group';
+  if (text.includes('no visible sale history') || text.includes('no sale history')) return 'no visible sale history';
+  return 'cold/pre-2020 explicit field';
 }
 function calculateDailyBonus(total) {
   total = Number(total || 0);
@@ -572,16 +568,9 @@ function getNextColdTarget(total) {
   const steps = Math.floor((total - COLD_BONUS_START) / COLD_BONUS_STEP);
   return COLD_BONUS_START + (steps + 1) * COLD_BONUS_STEP;
 }
-function getClosedSalesForRange(data, startDate, endDate) {
-  return Array.from(data || []).filter(donor => donorHasSaleActivityInRange(donor, startDate, endDate));
-}
-function getDashboardScopeData() {
-  if (currentCampaignFilter === 'all') return Array.from(allDonors);
-  return allDonors.filter(donor => getCampaignCode(donor) === currentCampaignFilter);
-}
-function getSalesTotalForRange(data, startDate, endDate) {
-  return getClosedSalesForRange(data, startDate, endDate).reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0);
-}
+function getClosedSalesForRange(data, startDate, endDate) { return Array.from(data || []).filter(donor => donorHasSaleActivityInRange(donor, startDate, endDate)); }
+function getDashboardScopeData() { return currentCampaignFilter === 'all' ? Array.from(allDonors) : allDonors.filter(donor => getCampaignCode(donor) === currentCampaignFilter); }
+function getSalesTotalForRange(data, startDate, endDate) { return getClosedSalesForRange(data, startDate, endDate).reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0); }
 function getDateList(startDate, endDate) {
   if (!startDate || !endDate) return [];
   const dates = [];
@@ -596,17 +585,13 @@ function getDateList(startDate, endDate) {
   return dates;
 }
 function getDailyBonusRows(data, startDate, endDate) {
-  const dates = getDateList(startDate, endDate);
-  return dates.map(dateText => {
+  return getDateList(startDate, endDate).map(dateText => {
     const total = getSalesTotalForRange(data, dateText, dateText);
     const bonus = calculateDailyBonus(total);
     const nextTarget = getNextDailyBonusTarget(total);
     const untilNext = Math.max(0, nextTarget - total);
-    return { date: dateText, total, bonus, nextTarget, untilNext };
+    return { date: dateText, total: total, bonus: bonus, nextTarget: nextTarget, untilNext: untilNext };
   });
-}
-function getTotalDailyBonusForRange(data, startDate, endDate) {
-  return getDailyBonusRows(data, startDate, endDate).reduce((sum, row) => sum + Number(row.bonus || 0), 0);
 }
 function getDailyBonusSummaryText(rows) {
   const earned = rows.filter(row => Number(row.bonus || 0) > 0);
@@ -620,8 +605,61 @@ function buildDailyBonusBreakdownHtml(data, startDate, endDate) {
   const rows = getDailyBonusRows(data, startDate, endDate);
   if (!rows.length) return '<p class="report-line"><strong>Daily bonus breakdown:</strong> No dated rows.</p>';
   const body = rows.map(row => '<tr><td>' + escapeHtml(formatNzShortDate(row.date)) + '</td><td>' + formatMoney(row.total) + '</td><td>' + formatMoney(row.bonus) + '</td><td>' + (row.untilNext ? formatMoney(row.untilNext) + ' to next level' : 'Next level reached') + '</td></tr>').join('');
-  return '<p class="report-line"><strong>Daily bonuses this period:</strong> ' + escapeHtml(getDailyBonusSummaryText(rows)) + '</p>' +
-    '<table class="report-table"><thead><tr><th>Date</th><th>Closed sales</th><th>Daily bonus</th><th>Next level</th></tr></thead><tbody>' + body + '</tbody></table>';
+  return '<p class="report-line"><strong>Daily bonuses this period:</strong> ' + escapeHtml(getDailyBonusSummaryText(rows)) + '</p><table class="report-table"><thead><tr><th>Date</th><th>Closed sales</th><th>Daily bonus</th><th>Next level</th></tr></thead><tbody>' + body + '</tbody></table>';
+}
+function getCampaignClosedSales(code, data) {
+  const campaignCode = String(code || '').trim().toUpperCase();
+  return Array.from(data || []).filter(donor => getCampaignCode(donor) === campaignCode && isClosedSale(donor));
+}
+function getCampaignTotalSales(code, data) {
+  return getCampaignClosedSales(code, data).reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0);
+}
+function getCampaignLateWorkCounts(code, data) {
+  const campaignCode = String(code || '').trim().toUpperCase();
+  const scoped = Array.from(data || []).filter(donor => getCampaignCode(donor) === campaignCode);
+  return {
+    email: scoped.filter(isEmailFollowUp).length,
+    unenteredSales: scoped.filter(donor => isClosedSale(donor) && donor.pcl_entered !== true).length,
+    closedSales: scoped.filter(isClosedSale).length,
+    activeCallQueue: scoped.filter(donor => isCallQueueContact(donor)).length
+  };
+}
+function getKnownCampaignCodes(data) {
+  const codes = new Set(Object.keys(CAMPAIGN_TARGETS));
+  Array.from(data || []).forEach(donor => codes.add(getCampaignCode(donor)));
+  return Array.from(codes).filter(Boolean).sort();
+}
+function buildSingleCampaignTargetCard(code, data) {
+  const config = getCampaignLifecycleConfig(code);
+  const target = Number(config.target || 0);
+  const total = getCampaignTotalSales(code, data);
+  const remaining = Math.max(0, target - total);
+  const pct = target > 0 ? Math.min(999, Math.round((total / target) * 100)) : 0;
+  const counts = getCampaignLateWorkCounts(code, data);
+  const finished = isFinishedCampaignCode(code);
+  const dateNote = config.callingEndDate ? 'Calling ends ' + formatNzShortDate(config.callingEndDate) + (config.eventDate ? ' / event ' + formatNzShortDate(config.eventDate) : '') : 'Active / no end date set';
+  return '<div class="bonus-card"><strong>Campaign target — ' + escapeHtml(code) + '</strong>' +
+    '<span class="bonus-main">' + formatMoney(total) + (target ? ' / ' + formatMoney(target) : '') + '</span>' +
+    '<div class="' + (target && total >= target ? 'bonus-good' : 'bonus-warn') + '">' + (target ? pct + '% complete — ' + formatMoney(remaining) + ' remaining' : 'No target set') + '</div>' +
+    '<div class="bonus-small">' + escapeHtml(config.label || code) + ' — ' + escapeHtml(dateNote) + (finished ? ' — hidden from active all-campaign working lists' : '') + '</div>' +
+    '<div class="target-progress">Unentered sales: ' + counts.unenteredSales + ' · Email follow-ups: ' + counts.email + ' · Call queue: ' + counts.activeCallQueue + '</div></div>';
+}
+function buildAllCampaignTargetsCard(data) {
+  const rows = getKnownCampaignCodes(data).map(code => {
+    const config = getCampaignLifecycleConfig(code);
+    const target = Number(config.target || 0);
+    const total = getCampaignTotalSales(code, data);
+    const remaining = target ? Math.max(0, target - total) : 0;
+    const pct = target ? Math.round((total / target) * 100) : 0;
+    const counts = getCampaignLateWorkCounts(code, data);
+    const status = isFinishedCampaignCode(code) ? 'Finished/hidden from active lists' : 'Active';
+    return '<tr><td>' + escapeHtml(code) + '</td><td>' + escapeHtml(config.label || '') + '</td><td>' + formatMoney(total) + '</td><td>' + (target ? formatMoney(target) : '-') + '</td><td>' + (target ? pct + '%' : '-') + '</td><td>' + (target ? formatMoney(remaining) : '-') + '</td><td>' + counts.unenteredSales + '</td><td>' + counts.email + '</td><td>' + escapeHtml(status) + '</td></tr>';
+  }).join('');
+  return '<div class="bonus-card"><strong>Campaign targets</strong><table class="target-table"><thead><tr><th>Code</th><th>Campaign</th><th>Sales</th><th>Target</th><th>%</th><th>Left</th><th>Unentered</th><th>Email</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table><div class="bonus-small">Finished campaigns are only hidden from normal all-campaign working lists. Search, selected campaign, Email Follow Up, Closed Sales To Enter, reports, and All Contacts still show them.</div></div>';
+}
+function buildCampaignTargetsHtml(data) {
+  if (currentCampaignFilter === 'all') return buildAllCampaignTargetsCard(allDonors);
+  return buildSingleCampaignTargetCard(currentCampaignFilter, allDonors);
 }
 function buildBonusSummaryHtml(data, startDate, endDate) {
   const scoped = Array.from(data || []);
@@ -634,7 +672,6 @@ function buildBonusSummaryHtml(data, startDate, endDate) {
   const todayTotal = getSalesTotalForRange(scoped, todayString(), todayString());
   const nextDaily = getNextDailyBonusTarget(isSingleDay ? periodTotal : todayTotal);
   const dailyRemaining = Math.max(0, nextDaily - (isSingleDay ? periodTotal : todayTotal));
-
   const cycleRange = getPayCycleRange();
   const cycleSales = getClosedSalesForRange(scoped, cycleRange.start, cycleRange.end);
   const coldSales = cycleSales.filter(isColdBonusEligible);
@@ -642,75 +679,30 @@ function buildBonusSummaryHtml(data, startDate, endDate) {
   const coldBonus = calculateColdBonus(coldTotal);
   const nextCold = getNextColdTarget(coldTotal);
   const coldRemaining = Math.max(0, nextCold - coldTotal);
-
   const dailyTitle = isSingleDay ? 'Daily sales' : 'Period sales';
   const dailyBonusLabel = isSingleDay ? 'Daily bonus: ' : 'Daily bonuses: ';
   const dailySmall = isSingleDay ? (dailyRemaining ? formatMoney(dailyRemaining) + ' until next daily bonus level.' : 'Next daily bonus level reached.') : 'Daily bonus calculated day-by-day, not from period total.';
   const coldStatus = coldTotal >= COLD_DAILY_ELIGIBILITY_TARGET ? 'Cold threshold met.' : formatMoney(COLD_DAILY_ELIGIBILITY_TARGET - coldTotal) + ' to $770 cold threshold.';
   const coldBonusStatus = coldTotal >= COLD_BONUS_START ? formatMoney(coldRemaining) + ' to next $10 cold bonus.' : formatMoney(Math.max(0, COLD_BONUS_START - coldTotal)) + ' to first cold bonus.';
-
   return '<div class="bonus-card"><strong>' + dailyTitle + '</strong><span class="bonus-main">' + formatMoney(periodTotal) + '</span><div class="' + (dailyBonusTotal ? 'bonus-good' : 'bonus-warn') + '">' + dailyBonusLabel + formatMoney(dailyBonusTotal) + '</div><div class="bonus-small">' + dailySmall + '</div></div>' +
-    '<div class="bonus-card"><strong>Daily bonus levels</strong><div>$1,500 = $20</div><div>Every extra $500 = +$10</div><div class="bonus-small">' + (isSingleDay ? 'Next level: ' + formatMoney(nextDaily) : getDailyBonusSummaryText(dailyRows)) + '</div></div>' +
     '<div class="bonus-card"><strong>Cold pay-cycle sales</strong><span class="bonus-main">' + formatMoney(coldTotal) + '</span><div>' + coldSales.length + ' cold eligible sales in current cycle</div><div class="' + (coldTotal >= COLD_DAILY_ELIGIBILITY_TARGET ? 'bonus-good' : 'bonus-warn') + '">' + coldStatus + '</div></div>' +
-    '<div class="bonus-card"><strong>Cold bonus</strong><span class="bonus-main">' + formatMoney(coldBonus) + '</span><div>$1,000 = $20, then +$10 per $400</div><div class="bonus-small">' + coldBonusStatus + '</div></div>';
+    '<div class="bonus-card"><strong>Cold bonus</strong><span class="bonus-main">' + formatMoney(coldBonus) + '</span><div>$1,000 = $20, then +$10 per $400</div><div class="bonus-small">' + coldBonusStatus + '</div></div>' +
+    buildCampaignTargetsHtml(scoped);
 }
-function renderBonusStrip() {
-  const box = document.getElementById('bonusStrip');
-  if (!box) return;
-  const scoped = getDashboardScopeData();
-  box.innerHTML = buildBonusSummaryHtml(scoped, todayString(), todayString());
-}
-function getTicketPitchForAmount(amount, donor) {
-  const ticket = getTicketAmount(donor) || AUTISM_TICKET_AMOUNT;
-  const n = Number(amount || 0);
-  const kids = Math.max(1, Math.round(n / ticket));
-  return kids + ' kids × $' + ticket + ' = $' + (kids * ticket);
-}
-function ticketGroupAmount(donor, baseAmount) {
-  const ticket = getTicketAmount(donor) || AUTISM_TICKET_AMOUNT;
-  const n = Number(baseAmount || 0);
-  if (n >= ticket * 9) return ticket * 10;
-  if (n >= ticket * 5.5) return ticket * 6;
-  if (n >= ticket * 4.5) return ticket * 5;
-  if (n >= ticket * 3.5) return ticket * 4;
-  return ticket * 3;
-}
+function renderBonusStrip() { const box = document.getElementById('bonusStrip'); if (box) box.innerHTML = buildBonusSummaryHtml(getDashboardScopeData(), todayString(), todayString()); }
+function getTicketPitchForAmount(amount, donor) { const ticket = getTicketAmount(donor) || AUTISM_TICKET_AMOUNT; const kids = Math.max(1, Math.round(Number(amount || 0) / ticket)); return kids + ' kids × $' + ticket + ' = $' + (kids * ticket); }
+function ticketGroupAmount(donor, baseAmount) { const ticket = getTicketAmount(donor) || AUTISM_TICKET_AMOUNT; const n = Number(baseAmount || 0); if (n >= ticket * 9) return ticket * 10; if (n >= ticket * 5.5) return ticket * 6; if (n >= ticket * 4.5) return ticket * 5; if (n >= ticket * 3.5) return ticket * 4; return ticket * 3; }
 
-function showDashboard() {
-  document.getElementById('reportBox').style.display = 'none';
-  document.getElementById('formArea').style.display = formsOpen ? 'grid' : 'none';
-  document.getElementById('crmTable').style.display = 'table';
-}
-function showReportOnly() {
-  document.getElementById('formArea').style.display = 'none';
-  document.getElementById('crmTable').style.display = 'none';
-  document.getElementById('reportBox').style.display = 'block';
-}
-function openAddContactPanel() {
-  formsOpen = true; showDashboard();
-  const addBox = document.getElementById('addContactBox'); const editBox = document.getElementById('editContactBox');
-  if (addBox) addBox.style.display = 'block'; if (editBox) editBox.style.display = 'none';
-  const form = document.getElementById('formArea'); if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-function openEditContactPanel() {
-  formsOpen = true; showDashboard();
-  const addBox = document.getElementById('addContactBox'); const editBox = document.getElementById('editContactBox');
-  if (addBox) addBox.style.display = 'none'; if (editBox) editBox.style.display = 'block';
-  const form = document.getElementById('formArea'); if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
+function showDashboard() { document.getElementById('reportBox').style.display = 'none'; document.getElementById('formArea').style.display = formsOpen ? 'grid' : 'none'; document.getElementById('crmTable').style.display = 'table'; }
+function showReportOnly() { document.getElementById('formArea').style.display = 'none'; document.getElementById('crmTable').style.display = 'none'; document.getElementById('reportBox').style.display = 'block'; }
+function openAddContactPanel() { formsOpen = true; showDashboard(); document.getElementById('addContactBox').style.display = 'block'; document.getElementById('editContactBox').style.display = 'none'; document.getElementById('formArea').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+function openEditContactPanel() { formsOpen = true; showDashboard(); document.getElementById('addContactBox').style.display = 'none'; document.getElementById('editContactBox').style.display = 'block'; document.getElementById('formArea').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 function closeContactPanels() { formsOpen = false; document.getElementById('formArea').style.display = 'none'; }
 function setFilter(filterName) { currentFilter = filterName; resetRenderLimit(); showDashboard(); renderDonors(); }
 function setCampaignFilter(value) { currentCampaignFilter = value; resetRenderLimit(); showDashboard(); renderDonors(); }
 function setSortMode(value) { currentSortMode = value || 'default'; resetRenderLimit(); showDashboard(); renderDonors(); }
 function setSectionMode(value) { currentSectionMode = value || 'all'; resetRenderLimit(); showDashboard(); renderDonors(); }
-function createDailyCallListFromInputs() {
-  currentFilter = 'callQueue';
-  currentSortMode = document.getElementById('sortMode').value || 'balancedDaily';
-  currentSectionMode = document.getElementById('sectionMode').value || 'all';
-  const requested = Number(document.getElementById('dailyListSize').value || 40);
-  currentRenderLimit = Math.max(5, Math.min(300, requested));
-  showDashboard(); renderDonors();
-}
+function createDailyCallListFromInputs() { currentFilter = 'callQueue'; currentSortMode = document.getElementById('sortMode').value || 'balancedDaily'; currentSectionMode = document.getElementById('sectionMode').value || 'all'; const requested = Number(document.getElementById('dailyListSize').value || 40); currentRenderLimit = Math.max(5, Math.min(300, requested)); showDashboard(); renderDonors(); }
 function backToCallQueue() { setFilter('callQueue'); }
 function resetRenderLimit() { currentRenderLimit = INITIAL_RENDER_LIMIT; }
 function loadMoreRows() { currentRenderLimit += RENDER_STEP; renderDonors(); }
@@ -721,40 +713,24 @@ function donorMatchesSearch(donor, term) {
   const cleanTerm = String(term || '').toLowerCase().replace(/\s+/g, ' ').trim();
   const digitsOnly = cleanTerm.replace(/\D/g, '');
   if (!cleanTerm) return true;
-  const searchableText = [
-    donor.id, donor.card_id, donor.business_name, donor.contact_name, donor.sale_contact_name,
-    donor.mobile, donor.office_phone, donor.email, donor.location, donor.status,
-    donor.notes, donor.phone_notes, donor.sales_history, donor.check_details_reason,
-    donor.campaign_code, donor.campaign_area, donor.charity_name, donor.sale_number, donor.suggested_ask,
-    getAskReason(donor), getAskAmount(donor), getDuplicateWarningText(donor), getCallHistoryText(donor)
-  ].join(' ').toLowerCase();
+  const searchableText = [donor.id, donor.card_id, donor.business_name, donor.contact_name, donor.sale_contact_name, donor.mobile, donor.office_phone, donor.email, donor.location, donor.status, donor.notes, donor.phone_notes, donor.sales_history, donor.check_details_reason, donor.campaign_code, donor.campaign_area, donor.charity_name, donor.sale_number, donor.suggested_ask, donor.history_group, donor.local_school_angle, donor.contactability_status, donor.research_strength, donor.business_category, donor.cold_card, donor.cold_bonus_eligible, getAskReason(donor), getAskAmount(donor), getDuplicateWarningText(donor), getCallHistoryText(donor), getColdReason(donor)].join(' ').toLowerCase();
   const searchableDigits = [donor.card_id, donor.mobile, donor.office_phone, donor.sale_number, donor.suggested_ask, getAskAmount(donor)].join(' ').replace(/\D/g, '');
-  if (searchableText.includes(cleanTerm)) return true;
-  if (digitsOnly && searchableDigits.includes(digitsOnly)) return true;
-  return false;
+  return searchableText.includes(cleanTerm) || (digitsOnly && searchableDigits.includes(digitsOnly));
 }
 function populateCampaignFilter() {
   const select = document.getElementById('campaignFilter');
   const previousValue = currentCampaignFilter;
   const campaignMap = new Map();
-  allDonors.forEach(donor => {
-    const code = getCampaignCode(donor);
-    if (!campaignMap.has(code)) campaignMap.set(code, getCampaignLabel(donor));
-  });
+  allDonors.forEach(donor => { const code = getCampaignCode(donor); if (!campaignMap.has(code)) campaignMap.set(code, getCampaignLabel(donor)); });
+  Object.keys(CAMPAIGN_TARGETS).forEach(code => { if (!campaignMap.has(code)) campaignMap.set(code, code + ' | ' + CAMPAIGN_TARGETS[code].label); });
   select.innerHTML = '<option value="all">All Campaigns</option>';
-  Array.from(campaignMap.entries()).sort((a, b) => a[0].localeCompare(b[0])).forEach(([code, label]) => {
-    const option = document.createElement('option'); option.value = code; option.textContent = label; select.appendChild(option);
-  });
-  if (Array.from(select.options).some(option => option.value === previousValue)) select.value = previousValue;
-  else { select.value = 'all'; currentCampaignFilter = 'all'; }
+  Array.from(campaignMap.entries()).sort((a, b) => a[0].localeCompare(b[0])).forEach(([code, label]) => { const option = document.createElement('option'); option.value = code; const status = isFinishedCampaignCode(code) ? ' (finished)' : ''; const target = getCampaignTargetAmount(code) ? ' target ' + formatMoney(getCampaignTargetAmount(code)) : ''; option.textContent = label + target + status; select.appendChild(option); });
+  if (Array.from(select.options).some(option => option.value === previousValue)) select.value = previousValue; else { select.value = 'all'; currentCampaignFilter = 'all'; }
 }
 async function loadDonors() {
   clearError(); clearWarning();
   const { data, error } = await client.from('donors').select('*').order('card_id', { ascending: true });
-  if (error) {
-    const msg = 'Could not load donors.\n\nMessage: ' + (error.message || 'No message') + '\nDetails: ' + (error.details || 'No details') + '\nHint: ' + (error.hint || 'No hint') + '\nCode: ' + (error.code || 'No code');
-    console.error('SUPABASE LOAD ERROR:', error); showError(msg); alert(msg); return;
-  }
+  if (error) { const msg = 'Could not load donors.\n\nMessage: ' + (error.message || 'No message') + '\nDetails: ' + (error.details || 'No details') + '\nHint: ' + (error.hint || 'No hint') + '\nCode: ' + (error.code || 'No code'); console.error('SUPABASE LOAD ERROR:', error); showError(msg); alert(msg); return; }
   allDonors = data || [];
   detectOptionalDonorColumns();
   buildDuplicateLookup();
@@ -764,81 +740,25 @@ async function loadDonors() {
 }
 async function loadCallLogs(showAlertOnError) {
   const { data, error } = await client.from('crm_call_log').select('*').order('called_at', { ascending: false }).limit(5000);
-  if (error) {
-    callLogs = [];
-    callLogReady = false;
-    const msg = 'Call history is not active yet. Run the crm_call_log SQL setup once. Reports will still show contacts moved/worked, but total call attempts will be 0 until call logging is enabled.\n\n' + (error.message || '');
-    console.warn('CALL LOG LOAD ERROR:', error);
-    showWarning(msg);
-    if (showAlertOnError) alert(msg);
-    return;
-  }
+  if (error) { callLogs = []; callLogReady = false; const msg = 'Call history is not active yet. Run the crm_call_log SQL setup once. Reports will still show contacts moved/worked, but total call attempts will be 0 until call logging is enabled.\n\n' + (error.message || ''); console.warn('CALL LOG LOAD ERROR:', error); showWarning(msg); if (showAlertOnError) alert(msg); return; }
   callLogs = data || [];
   callLogReady = true;
 }
-function applyCampaignFilter(data) { if (currentCampaignFilter === 'all') return data; return data.filter(donor => getCampaignCode(donor) === currentCampaignFilter); }
-
-function cleanBusinessName(value) {
-  return String(value || '').toLowerCase()
-    .replace(/\b(limited|ltd|company|co|inc|nz|new zealand|2012|group|the)\b/g, ' ')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+function applyCampaignFilter(data) { return currentCampaignFilter === 'all' ? data : data.filter(donor => getCampaignCode(donor) === currentCampaignFilter); }
+function cleanBusinessName(value) { return String(value || '').toLowerCase().replace(/\b(limited|ltd|company|co|inc|nz|new zealand|2012|group|the)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim(); }
 function buildDuplicateLookup() {
   duplicateLookup = new Map();
   const groups = new Map();
-  allDonors.forEach(d => {
-    const clean = cleanBusinessName(d.business_name);
-    if (!clean || clean.length < 4) return;
-    if (!groups.has(clean)) groups.set(clean, []);
-    groups.get(clean).push(d);
-  });
-  groups.forEach((items, clean) => {
-    const uniqueIds = Array.from(new Set(items.map(x => String(x.card_id || '').trim()).filter(Boolean)));
-    if (uniqueIds.length > 1) {
-      items.forEach(item => duplicateLookup.set(item.id, items.filter(other => other.id !== item.id)));
-    }
-  });
+  allDonors.forEach(d => { const clean = cleanBusinessName(d.business_name); if (!clean || clean.length < 4) return; if (!groups.has(clean)) groups.set(clean, []); groups.get(clean).push(d); });
+  groups.forEach(items => { const uniqueIds = Array.from(new Set(items.map(x => String(x.card_id || '').trim()).filter(Boolean))); if (uniqueIds.length > 1) items.forEach(item => duplicateLookup.set(item.id, items.filter(other => other.id !== item.id))); });
 }
 function getDuplicateMatches(donor) { return duplicateLookup.get(donor.id) || []; }
 function hasDuplicateRisk(donor) { return getDuplicateMatches(donor).length > 0; }
-function getDuplicateWarningText(donor) {
-  const matches = getDuplicateMatches(donor);
-  if (!matches.length) return '';
-  return 'Possible duplicate/similar business. Other card ID(s): ' + matches.map(m => (m.card_id || 'no ID') + ' ' + (m.business_name || '')).join(' | ');
-}
+function getDuplicateWarningText(donor) { const matches = getDuplicateMatches(donor); if (!matches.length) return ''; return 'Possible duplicate/similar business. Other card ID(s): ' + matches.map(m => (m.card_id || 'no ID') + ' ' + (m.business_name || '')).join(' | '); }
 
-function roundAsk(value) {
-  const n = Number(value || 0);
-  if (!Number.isFinite(n) || n <= 0) return 65;
-  let rounded;
-  if (n <= 130) rounded = Math.round(n / 5) * 5;
-  else if (n <= 300) rounded = Math.round(n / 10) * 10;
-  else rounded = Math.round(n / 50) * 50;
-  return Math.max(65, Math.min(2000, rounded));
-}
-function extractMoneyAmounts(text) {
-  const source = String(text || '');
-  const amounts = [];
-  let match;
-  const dollarRegex = /\$\s*([0-9]{2,4})/g;
-  while ((match = dollarRegex.exec(source)) !== null) {
-    const n = Number(match[1]);
-    if (n >= 40 && n <= 3000) amounts.push(n);
-  }
-  return amounts;
-}
-function getPriorityAskByName(name) {
-  const n = String(name || '').toLowerCase();
-  const priority = [
-    ['advanced data centres', 1000], ['pioneer group', 1000], ['marsden point developments', 1000], ['aon risk services', 750],
-    ['whangarei marine services', 500], ['tim boyd electrical', 500], ['northland orthopaedics', 500], ['drainspec', 500],
-    ['bruce mcqueen builder', 500], ['aa auto centre', 300], ['mainfreight', 1000]
-  ];
-  for (const item of priority) if (n.includes(item[0])) return item[1];
-  return 0;
-}
+function roundAsk(value) { const n = Number(value || 0); if (!Number.isFinite(n) || n <= 0) return 65; let rounded; if (n <= 130) rounded = Math.round(n / 5) * 5; else if (n <= 300) rounded = Math.round(n / 10) * 10; else rounded = Math.round(n / 50) * 50; return Math.max(65, Math.min(2000, rounded)); }
+function extractMoneyAmounts(text) { const source = String(text || ''); const amounts = []; let match; const dollarRegex = /\$\s*([0-9]{2,4})/g; while ((match = dollarRegex.exec(source)) !== null) { const n = Number(match[1]); if (n >= 40 && n <= 3000) amounts.push(n); } return amounts; }
+function getPriorityAskByName(name) { const n = String(name || '').toLowerCase(); const priority = [['advanced data centres',1000],['pioneer group',1000],['marsden point developments',1000],['aon risk services',750],['whangarei marine services',500],['tim boyd electrical',500],['northland orthopaedics',500],['drainspec',500],['bruce mcqueen builder',500],['aa auto centre',300],['mainfreight',1000]]; for (const item of priority) if (n.includes(item[0])) return item[1]; return 0; }
 function getBusinessCapacityAsk(name) {
   const n = String(name || '').toLowerCase();
   if (!n.trim()) return { amount: 65, reason: 'No business name yet: use card ID in PCL first. Safe Autism ticket ask is 1 kid = $65 unless PCL shows a stronger business.' };
@@ -852,86 +772,141 @@ function getBusinessCapacityAsk(name) {
 }
 function getRecommendedAskInfo(donor) {
   const saved = Number(donor.suggested_ask || 0);
-  if (Number.isFinite(saved) && saved > 0) {
-    const pitch = usesTicketPitch(donor) ? ' Ticket pitch: ' + getTicketPitchForAmount(saved, donor) + '.' : '';
-    return { amount: saved, source: 'saved', reason: 'Saved recommended ask from earlier card/business analysis.' + pitch };
-  }
+  if (Number.isFinite(saved) && saved > 0) { const pitch = usesTicketPitch(donor) ? ' Ticket pitch: ' + getTicketPitchForAmount(saved, donor) + '.' : ''; return { amount: saved, source: 'saved', reason: 'Saved recommended ask from earlier card/business analysis.' + pitch }; }
   const name = donor.business_name || '';
   const priorityAsk = getPriorityAskByName(name);
   const moneyAmounts = extractMoneyAmounts(donor.sales_history || '').concat(extractMoneyAmounts(donor.notes || ''));
   const maxPast = moneyAmounts.length ? Math.max(...moneyAmounts) : 0;
-  let amount = 0;
-  let reason = '';
-  if (priorityAsk > 0) {
-    amount = priorityAsk;
-    reason = 'Priority prospect / larger-capacity business from call planning list. Use stronger sponsor ask first.';
-  } else if (maxPast > 0) {
-    if (maxPast >= 1000) amount = 1500;
-    else if (maxPast >= 500) amount = roundAsk(maxPast * 1.25);
-    else if (maxPast >= 300) amount = roundAsk(maxPast * 1.3);
-    else if (maxPast >= 120) amount = roundAsk(maxPast * 1.5);
-    else if (maxPast >= 90) amount = 130;
-    else amount = 65;
-    reason = 'Based on visible past giving history. Highest visible amount: $' + maxPast + '. Ask slightly above past support where sensible.';
-  } else {
-    const capacity = getBusinessCapacityAsk(name);
-    amount = capacity.amount;
-    reason = capacity.reason;
-  }
-  if (usesTicketPitch(donor)) {
-    const ticket = getTicketAmount(donor);
-    amount = ticketGroupAmount(donor, amount);
-    reason += ' Tickets are $' + ticket + ' each. Suggested group pitch: ' + getTicketPitchForAmount(amount, donor) + '.';
-  } else {
-    amount = roundAsk(amount);
-  }
+  let amount = 0; let reason = '';
+  if (priorityAsk > 0) { amount = priorityAsk; reason = 'Priority prospect / larger-capacity business from call planning list. Use stronger sponsor ask first.'; }
+  else if (maxPast > 0) { if (maxPast >= 1000) amount = 1500; else if (maxPast >= 500) amount = roundAsk(maxPast * 1.25); else if (maxPast >= 300) amount = roundAsk(maxPast * 1.3); else if (maxPast >= 120) amount = roundAsk(maxPast * 1.5); else if (maxPast >= 90) amount = 130; else amount = 65; reason = 'Based on visible past giving history. Highest visible amount: $' + maxPast + '. Ask slightly above past support where sensible.'; }
+  else { const capacity = getBusinessCapacityAsk(name); amount = capacity.amount; reason = capacity.reason; }
+  if (usesTicketPitch(donor)) { const ticket = getTicketAmount(donor); amount = ticketGroupAmount(donor, amount); reason += ' Tickets are $' + ticket + ' each. Suggested group pitch: ' + getTicketPitchForAmount(amount, donor) + '.'; } else amount = roundAsk(amount);
   return { amount: amount, source: 'smart', reason: reason };
 }
 function getAskAmount(donor) { return Number(getRecommendedAskInfo(donor).amount || 0); }
 function getAskReason(donor) { return getRecommendedAskInfo(donor).reason; }
 
+function pinContact(id, reason) { pinnedContactId = Number(id); pinnedContactReason = reason || 'recently updated'; }
+function clearPinnedContact() { pinnedContactId = null; pinnedContactReason = ''; renderDonors(); }
+function applyPinnedContact(data) { if (!pinnedContactId) return data; const donor = allDonors.find(item => Number(item.id) === Number(pinnedContactId)); if (!donor) return data; return [donor].concat(data.filter(item => Number(item.id) !== Number(pinnedContactId))); }
+function updateLocalDonor(id, updates) { const donor = allDonors.find(item => Number(item.id) === Number(id)); if (donor) Object.assign(donor, updates); buildDuplicateLookup(); return donor; }
 
-function pinContact(id, reason) {
-  pinnedContactId = Number(id);
-  pinnedContactReason = reason || 'recently updated';
-}
-
-function clearPinnedContact() {
-  pinnedContactId = null;
-  pinnedContactReason = '';
-  renderDonors();
-}
-
-function applyPinnedContact(data) {
-  if (!pinnedContactId) return data;
-  const donor = allDonors.find(item => Number(item.id) === Number(pinnedContactId));
-  if (!donor) return data;
-  const withoutPinned = data.filter(item => Number(item.id) !== Number(pinnedContactId));
-  return [donor].concat(withoutPinned);
-}
-
-function updateLocalDonor(id, updates) {
-  const donor = allDonors.find(item => Number(item.id) === Number(id));
-  if (donor) Object.assign(donor, updates);
-  buildDuplicateLookup();
-  return donor;
-}
-
-
-function getCombinedText(donor) { return [donor.business_name, donor.contact_name, donor.sale_contact_name, donor.email, donor.location, donor.notes, donor.phone_notes, donor.sales_history, donor.check_details_reason, donor.local_school_angle, donor.history_group, donor.contactability_status, donor.research_strength, donor.business_category, donor.priority_group].join(' ').toLowerCase(); }
-function getHistoryYears(donor) { const text = [donor.sales_history, donor.notes, donor.phone_notes, donor.history_group].join(' '); const years = text.match(/\b(19|20)\d{2}\b/g) || []; return years.map(Number).filter(y => y >= 1990 && y <= 2030); }
+function getCombinedText(donor) { return [donor.business_name, donor.contact_name, donor.sale_contact_name, donor.email, donor.location, donor.notes, donor.phone_notes, donor.sales_history, donor.check_details_reason, donor.local_school_angle, donor.history_group, donor.contactability_status, donor.research_strength, donor.business_category, donor.priority_group, donor.cold_card, donor.cold_bonus_eligible].join(' ').toLowerCase(); }
+function getHistoryYears(donor) { const text = [donor.sales_history, donor.notes, donor.phone_notes, donor.history_group, donor.last_any_sale_year, donor.last_autism_sale_year].join(' '); const years = text.match(/\b(19|20)\d{2}\b/g) || []; return years.map(Number).filter(y => y >= 1990 && y <= 2030); }
 function getHistoryLatestYear(donor) { const years = getHistoryYears(donor); return years.length ? Math.max(...years) : 0; }
 function getHistoryMaxAmount(donor) { const amounts = extractMoneyAmounts([donor.sales_history, donor.notes, donor.phone_notes].join(' ')); return amounts.length ? Math.max(...amounts) : 0; }
 function getContactabilityScore(donor) { let score = 0; if (String(donor.contact_name || '').trim()) score += 5; if (String(donor.sale_contact_name || '').trim()) score += 5; if (String(donor.mobile || '').trim()) score += 4; if (String(donor.office_phone || '').trim()) score += 3; if (String(donor.email || '').trim()) score += 2; const c = String(donor.contactability_status || '').toLowerCase(); if (c.includes('contact') || c.includes('direct') || c.includes('public')) score += 4; return score; }
 function getResearchStrengthScore(donor) { const explicit = String(donor.research_strength || '').toLowerCase(); let score = Number(donor.priority_score || 0); const text = getCombinedText(donor); if (explicit.includes('strong')) score += 10; if (explicit.includes('medium')) score += 5; ['public','source','website','director','owner','manager','branch','capacity','large','group','construction','engineering','property','manufacturing','transport','logistics','school'].forEach(word => { if (text.includes(word)) score += 1; }); score += Math.min(8, Math.round(getAskAmount(donor) / 100)); score += Math.min(8, getContactabilityScore(donor)); return score; }
 function hasLocalSchoolAngle(donor) { return String(donor.local_school_angle || '').trim() !== '' || getCombinedText(donor).includes('school'); }
-function sectionMatches(donor) {
-  const mode = currentSectionMode || 'all'; if (mode === 'all') return true;
-  const text = getCombinedText(donor); const latestYear = getHistoryLatestYear(donor);
+function getProspectScore(donor) {
+  let score = 0;
+  score += Math.min(120, Math.round(getAskAmount(donor) / 5));
+  score += getContactabilityScore(donor) * 8;
+  score += getResearchStrengthScore(donor) * 4;
+  score += Math.min(80, Math.round(getHistoryMaxAmount(donor) / 10));
+  if (hasLocalSchoolAngle(donor)) score += 15;
+  if (hasDuplicateRisk(donor)) score -= 20;
+  if (isCheckNumber(donor)) score -= 10;
+  return score;
+}
+function sortByHighestProspect(a,b) {
+  const scoreCompare = getProspectScore(b) - getProspectScore(a);
+  if (scoreCompare !== 0) return scoreCompare;
+  const askCompare = getAskAmount(b) - getAskAmount(a);
+  if (askCompare !== 0) return askCompare;
+  return String(a.business_name || '').localeCompare(String(b.business_name || ''));
+}
+function normalizeHistoryGroupText(donor) {
+  return [donor.history_group, donor.history_bucket, donor.history_category, donor.priority_group]
+    .join(' ')
+    .toLowerCase()
+    .replace(/[–—_/]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function historyGroupHas(donor, terms) {
+  const group = normalizeHistoryGroupText(donor);
+  return terms.some(term => group.includes(String(term).toLowerCase().replace(/[–—_/]+/g, ' ').replace(/\s+/g, ' ').trim()));
+}
+function historyTextHas(donor, terms) {
+  const text = [normalizeHistoryGroupText(donor), donor.sales_history, donor.notes, donor.phone_notes, donor.check_details_reason]
+    .join(' ')
+    .toLowerCase()
+    .replace(/[–—_/]+/g, ' ')
+    .replace(/\s+/g, ' ');
+  return terms.some(term => text.includes(String(term).toLowerCase().replace(/[–—_/]+/g, ' ').replace(/\s+/g, ' ').trim()));
+}
+function hasTapsLastYearGroup(donor) {
+  const latestYear = getHistoryLatestYear(donor);
+  const group = normalizeHistoryGroupText(donor);
+  if (group === 'taps' || group === 'tap') return true;
+  if (historyGroupHas(donor, ['taps last year', 'tap last year', 'this charity last year', 'same charity last year', 'last year same charity'])) return true;
+  if ((historyTextHas(donor, ['taps', 'same charity', 'this charity']) || group.includes('taps')) && latestYear >= 2025) return true;
+  return false;
+}
+function hasComparativeRecentGroup(donor) {
+  const latestYear = getHistoryLatestYear(donor);
+  const group = normalizeHistoryGroupText(donor);
+  if (group === 'comparative') return true;
+  if (historyGroupHas(donor, ['comparative last 12', 'other charity last 12', 'recent other charity', 'other charity recent'])) return true;
+  if (historyTextHas(donor, ['comparative', 'other charity', 'other charities']) && latestYear >= 2025 && !hasRecentComparativeGroup(donor)) return true;
+  return false;
+}
+function hasRecentTapsGroup(donor) {
+  const latestYear = getHistoryLatestYear(donor);
+  if (hasTapsLastYearGroup(donor)) return true;
+  if (historyGroupHas(donor, ['recent taps', 'recent tap', 'taps 2023', 'taps 2024', 'tap 2023', 'tap 2024', 'same charity 2023', 'same charity 2024', 'this charity 2023', 'this charity 2024'])) return true;
+  if (historyTextHas(donor, ['taps', 'same charity', 'this charity']) && latestYear >= 2023) return true;
+  return false;
+}
+function hasRecentComparativeGroup(donor) {
+  const latestYear = getHistoryLatestYear(donor);
+  if (historyGroupHas(donor, ['recent comparative', 'recent comp', 'comparative 2023', 'comparative 2024', 'other charity 2023', 'other charity 2024', 'other charities 2023', 'other charities 2024'])) return true;
+  if (historyTextHas(donor, ['comparative', 'other charity', 'other charities']) && latestYear >= 2023 && latestYear <= 2024) return true;
+  return false;
+}
+function has2122HistoryGroup(donor) {
+  const latestYear = getHistoryLatestYear(donor);
+  if (historyGroupHas(donor, ['21 22', '21-22', '2021 2022', '2021-2022', '2021/2022', '21/22'])) return true;
+  if (latestYear >= 2021 && latestYear <= 2022) return true;
+  return false;
+}
+function hasPre2020OrColdGroup(donor) {
+  const latestYear = getHistoryLatestYear(donor);
+  const explicitYear = Number(donor.last_any_sale_year || 0);
+  if (isColdBonusEligible(donor)) return true;
+  if (historyGroupHas(donor, ['pre 2020', 'pre-2020', '2020 or earlier', 'no sale since 2020'])) return true;
+  if (explicitYear > 0 && explicitYear <= 2020) return true;
+  if (latestYear > 0 && latestYear <= 2020) return true;
+  return false;
+}
+function hasColdNoHistoryGroup(donor) {
+  const text = getCombinedText(donor);
+  const latestYear = getHistoryLatestYear(donor);
   const hasHistory = latestYear > 0 || getHistoryMaxAmount(donor) > 0 || text.includes('history') || text.includes('donated') || text.includes('sponsored');
-  const historyGroup = String(donor.history_group || '').toLowerCase();
-  const hasThisCharity = historyGroup.includes('same') || historyGroup.includes('taps') || text.includes('this charity') || text.includes('same charity') || text.includes('taps') || text.includes('autism') || text.includes('great kiwi circus') || text.includes('brain injured');
-  const hasComparative = historyGroup.includes('comparative') || text.includes('comparative') || text.includes('other charit') || text.includes('not this campaign') || text.includes('previous charity');
+  if (historyGroupHas(donor, ['cold', 'no history', 'no useful history', 'no visible sale history', 'no sales history', '0 donations', '$0 only'])) return true;
+  if (isColdBonusEligible(donor) && !hasTapsLastYearGroup(donor) && !hasRecentTapsGroup(donor) && !hasComparativeRecentGroup(donor) && !hasRecentComparativeGroup(donor) && !has2122HistoryGroup(donor)) return true;
+  return !hasHistory;
+}
+function getHistoryGroupDisplay(donor) {
+  const group = String(donor.history_group || '').trim();
+  if (group) return group;
+  if (hasTapsLastYearGroup(donor)) return 'TAPS';
+  if (hasComparativeRecentGroup(donor)) return 'Comparative';
+  if (hasRecentTapsGroup(donor)) return 'Recent TAPS';
+  if (hasRecentComparativeGroup(donor)) return 'Recent Comparative';
+  if (has2122HistoryGroup(donor)) return '21-22';
+  if (hasPre2020OrColdGroup(donor)) return 'Pre-2020 / Cold';
+  if (hasColdNoHistoryGroup(donor)) return 'Cold';
+  return '';
+}
+function sectionMatches(donor) {
+  const mode = currentSectionMode || 'all';
+  if (mode === 'all') return true;
+  const text = getCombinedText(donor);
+  const latestYear = getHistoryLatestYear(donor);
+  const hasHistory = latestYear > 0 || getHistoryMaxAmount(donor) > 0 || text.includes('history') || text.includes('donated') || text.includes('sponsored');
   if (mode === 'dailyFocus') return donor.daily_call_list === true || String(donor.daily_call_list).toLowerCase() === 'true';
   if (mode === 'contactFound') return getContactabilityScore(donor) >= 5;
   if (mode === 'noContact') return !String(donor.contact_name || donor.sale_contact_name || '').trim();
@@ -940,29 +915,41 @@ function sectionMatches(donor) {
   if (mode === 'strongResearch') return getResearchStrengthScore(donor) >= 8;
   if (mode === 'localSchool') return hasLocalSchoolAngle(donor);
   if (mode === 'hasHistory') return hasHistory;
-  if (mode === 'tapsLastYear') return text.includes('taps') || (hasThisCharity && latestYear >= 2025);
-  if (mode === 'comparativeRecent') return hasComparative && latestYear >= 2025;
-  if (mode === 'sameCharity3Years') return hasThisCharity && latestYear >= 2023;
-  if (mode === 'comp2324') return hasComparative && latestYear >= 2023 && latestYear <= 2024;
-  if (mode === 'all2122') return latestYear >= 2021 && latestYear <= 2022;
-  if (mode === 'pre2020Cold') return latestYear > 0 && latestYear <= 2020;
-  if (mode === 'coldNoHistory') return !hasHistory || text.includes('cold') || text.includes('no visible sale history') || text.includes('no sale history');
+
+  // Explicit history-group categories for GKC/Autism imports.
+  // These are intentionally driven by history_group first, with year/text fallback only when needed.
+  if (mode === 'tapsLastYear') return hasTapsLastYearGroup(donor);
+  if (mode === 'comparativeRecent') return hasComparativeRecentGroup(donor);
+  if (mode === 'sameCharity3Years') return hasRecentTapsGroup(donor);
+  if (mode === 'comp2324') return hasRecentComparativeGroup(donor);
+  if (mode === 'all2122') return has2122HistoryGroup(donor);
+  if (mode === 'pre2020Cold') return hasPre2020OrColdGroup(donor);
+  if (mode === 'coldNoHistory') return hasColdNoHistoryGroup(donor);
   return true;
 }
-function applySectionFilter(data) { if ((currentSectionMode || 'all') === 'all') return data; return data.filter(sectionMatches); }
-function sortByDefaultForCurrentFilter(data) { if (currentFilter === 'email') return data.sort(sortEmailFollowUpList); if (currentFilter === 'callbacks' || currentFilter === 'willCallMe' || currentFilter === 'checkDetails') return data.sort(sortByNextActionDateThenBusiness); if (currentFilter === 'noAnswer' || currentFilter === 'noAnswerUnblocked' || currentFilter === 'alreadyCalled') return data.sort(sortByOldestLastCallThenBusiness); if (currentFilter === 'duplicateRisk') return data.sort((a,b) => cleanBusinessName(a.business_name).localeCompare(cleanBusinessName(b.business_name))); if (currentFilter === 'closedSales') return data.sort((a,b) => { const saleA = Number(a.sale_number || 999999); const saleB = Number(b.sale_number || 999999); if (saleA !== saleB) return saleA - saleB; return String(a.sale_date || '').localeCompare(String(b.sale_date || '')); }); return data.sort((a,b) => { const askCompare = getAskAmount(b) - getAskAmount(a); if (askCompare !== 0) return askCompare; return String(a.card_id || '').localeCompare(String(b.card_id || '')); }); }
+
+function applySectionFilter(data) { return (currentSectionMode || 'all') === 'all' ? data : data.filter(sectionMatches); }
+function sortByDefaultForCurrentFilter(data) {
+  if (currentFilter === 'email') return data.sort(sortEmailFollowUpList);
+  if (currentFilter === 'callbacks' || currentFilter === 'willCallMe' || currentFilter === 'checkDetails' || currentFilter === 'checkNumber') return data.sort(sortByNextActionDateThenBusiness);
+  if (currentFilter === 'noAnswer' || currentFilter === 'noAnswerUnblocked' || currentFilter === 'alreadyCalled') return data.sort(sortByOldestLastCallThenBusiness);
+  if (currentFilter === 'noCards' || currentFilter === 'putAside' || currentFilter === 'coldCards') return data.sort(sortByHighestProspect);
+  if (currentFilter === 'duplicateRisk') return data.sort((a,b) => cleanBusinessName(a.business_name).localeCompare(cleanBusinessName(b.business_name)));
+  if (currentFilter === 'closedSales') return data.sort((a,b) => { const saleA = Number(a.sale_number || 999999); const saleB = Number(b.sale_number || 999999); if (saleA !== saleB) return saleA - saleB; return String(a.sale_date || '').localeCompare(String(b.sale_date || '')); });
+  return data.sort((a,b) => { const askCompare = getAskAmount(b) - getAskAmount(a); if (askCompare !== 0) return askCompare; return String(a.card_id || '').localeCompare(String(b.card_id || '')); });
+}
 function applySortMode(data) { const mode = currentSortMode || 'default'; if (mode === 'default') return sortByDefaultForCurrentFilter(data); if (mode === 'balancedDaily') return data.sort((a,b) => (getContactabilityScore(b) + getResearchStrengthScore(b) + Math.round(getAskAmount(b)/100) + (hasLocalSchoolAngle(b)?4:0)) - (getContactabilityScore(a) + getResearchStrengthScore(a) + Math.round(getAskAmount(a)/100) + (hasLocalSchoolAngle(a)?4:0))); if (mode === 'smartValue') return data.sort((a,b) => getAskAmount(b) - getAskAmount(a)); if (mode === 'lastCalledOldest') return data.sort(sortByOldestLastCallThenBusiness); if (mode === 'lastCalledNewest') return data.sort((a,b) => getCalledSortTime(b) - getCalledSortTime(a)); if (mode === 'firstCallOldest') return data.sort((a,b) => { const aCalls = getCallAttemptCount(a); const bCalls = getCallAttemptCount(b); if (aCalls !== bCalls) return aCalls - bCalls; return String(a.created_at || '').localeCompare(String(b.created_at || '')); }); if (mode === 'historyValue') return data.sort((a,b) => getHistoryMaxAmount(b) - getHistoryMaxAmount(a)); if (mode === 'historyRecency') return data.sort((a,b) => getHistoryLatestYear(b) - getHistoryLatestYear(a)); if (mode === 'researchStrength') return data.sort((a,b) => getResearchStrengthScore(b) - getResearchStrengthScore(a)); if (mode === 'contactability') return data.sort((a,b) => getContactabilityScore(b) - getContactabilityScore(a)); if (mode === 'businessName') return data.sort((a,b) => String(a.business_name || '').localeCompare(String(b.business_name || ''))); return sortByDefaultForCurrentFilter(data); }
 
 function getFilteredDataRaw() {
   let filteredData = Array.from(allDonors);
   const searchTerm = document.getElementById('searchBox').value.trim();
-  if (searchTerm) {
-    filteredData = filteredData.filter(donor => donorMatchesSearch(donor, searchTerm));
-    filteredData = applySectionFilter(filteredData);
-    return applySortMode(filteredData);
-  }
+  if (searchTerm) { filteredData = filteredData.filter(donor => donorMatchesSearch(donor, searchTerm)); filteredData = applySectionFilter(filteredData); return applySortMode(filteredData); }
   filteredData = applyCampaignFilter(filteredData);
+  filteredData = applyFinishedCampaignVisibility(filteredData);
   if (currentFilter === 'callQueue') filteredData = filteredData.filter(donor => isCallQueueContact(donor));
+  else if (currentFilter === 'coldCards') filteredData = filteredData.filter(donor => isColdBonusEligible(donor));
+  else if (currentFilter === 'putAside') filteredData = filteredData.filter(donor => isPutAside(donor));
+  else if (currentFilter === 'noCards') filteredData = filteredData.filter(donor => isNoStatus(donor));
   else if (currentFilter === 'duplicateRisk') filteredData = filteredData.filter(donor => hasDuplicateRisk(donor));
   else if (currentFilter === 'callbacks') filteredData = filteredData.filter(donor => isCallback(donor));
   else if (currentFilter === 'willCallMe') filteredData = filteredData.filter(donor => isWillCallMe(donor));
@@ -971,218 +958,43 @@ function getFilteredDataRaw() {
   else if (currentFilter === 'noAnswerUnblocked') filteredData = filteredData.filter(donor => isNoAnswerUnblocked(donor));
   else if (currentFilter === 'alreadyCalled') filteredData = filteredData.filter(donor => getCallAttemptCount(donor) > 0 || donor.last_called || donor.last_status_change);
   else if (currentFilter === 'checkDetails') filteredData = filteredData.filter(donor => isCheckDetails(donor));
+  else if (currentFilter === 'checkNumber') filteredData = filteredData.filter(donor => isCheckNumber(donor));
   else if (currentFilter === 'closedSales') filteredData = filteredData.filter(donor => isClosedSale(donor) && donor.pcl_entered !== true);
   filteredData = applySectionFilter(filteredData);
   return applySortMode(filteredData);
 }
-function getFilteredData() {
-  return applyPinnedContact(getFilteredDataRaw());
-}
+function getFilteredData() { return applyPinnedContact(getFilteredDataRaw()); }
 
-function getLastCalledDisplay(value) {
-  if (!value) return 'Not called';
-  const date = new Date(value);
-  if (isNaN(date.getTime())) return formatNzShortDate(value) || String(value).slice(0, 10);
-  const today = todayString(); const dateText = localDateString(value);
-  if (dateText === today) return date.toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' });
-  return date.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short' });
-}
-
-function formatNzShortDate(value) {
-  if (!value) return '';
-  const raw = String(value).trim();
-  let year, month, day;
-
-  // Date-only fields from Supabase, like 2026-06-12, are already the intended NZ calendar date.
-  const dateOnlyMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (dateOnlyMatch) {
-    year = dateOnlyMatch[1];
-    month = dateOnlyMatch[2];
-    day = dateOnlyMatch[3];
-  } else {
-    // ISO timestamps are UTC; convert through the browser so NZ/local day displays correctly.
-    const date = new Date(raw);
-    if (isNaN(date.getTime())) return raw;
-    year = String(date.getFullYear());
-    month = String(date.getMonth() + 1).padStart(2, '0');
-    day = String(date.getDate()).padStart(2, '0');
-  }
-
-  return Number(day) + '/' + Number(month) + '/' + year.slice(-2);
-}
-function getCallLogsForDonor(donor) {
-  const donorId = String(donor.id || '');
-  const cardId = String(donor.card_id || '').trim();
-  return callLogs.filter(log => String(log.donor_id || '') === donorId || (cardId && String(log.card_id || '').trim() === cardId));
-}
+function getLastCalledDisplay(value) { if (!value) return 'Not called'; const date = new Date(value); if (isNaN(date.getTime())) return formatNzShortDate(value) || String(value).slice(0, 10); return localDateString(value) === todayString() ? date.toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' }) : date.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short' }); }
+function formatNzShortDate(value) { if (!value) return ''; const raw = String(value).trim(); let year, month, day; const dateOnlyMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/); if (dateOnlyMatch) { year = dateOnlyMatch[1]; month = dateOnlyMatch[2]; day = dateOnlyMatch[3]; } else { const date = new Date(raw); if (isNaN(date.getTime())) return raw; year = String(date.getFullYear()); month = String(date.getMonth() + 1).padStart(2, '0'); day = String(date.getDate()).padStart(2, '0'); } return Number(day) + '/' + Number(month) + '/' + year.slice(-2); }
+function getCallLogsForDonor(donor) { const donorId = String(donor.id || ''); const cardId = String(donor.card_id || '').trim(); return callLogs.filter(log => String(log.donor_id || '') === donorId || (cardId && String(log.card_id || '').trim() === cardId)); }
 function getCallAttemptCount(donor) { return getCallLogsForDonor(donor).length; }
 function getLastCallLog(donor) { const logs = getCallLogsForDonor(donor); return logs.length ? logs[0] : null; }
-function getLastCallTimeValue(donor) {
-  const lastLog = getLastCallLog(donor);
-  return lastLog ? lastLog.called_at : (donor.last_called || donor.last_status_change || donor.updated_at || donor.created_at || '');
-}
-function getCalledSortTime(donor) {
-  const value = getLastCallTimeValue(donor);
-  if (!value) return 9999999999999;
-  const time = new Date(value).getTime();
-  if (isNaN(time)) return 9999999999999;
-  return time;
-}
-function sortByOldestLastCallThenBusiness(a,b) {
-  const aTime = getCalledSortTime(a); const bTime = getCalledSortTime(b);
-  if (aTime !== bTime) return aTime - bTime;
-  return String(a.business_name || '').localeCompare(String(b.business_name || ''));
-}
-function getCallHistoryText(donor) {
-  const logs = getCallLogsForDonor(donor);
-  if (!logs.length) return 'No call log attempts yet.';
-  return logs.slice(0, 6).map((log, index) => {
-    const dt = getLastCalledDisplay(log.called_at);
-    return (index + 1) + '. ' + dt + ' — ' + (log.number_type || '') + ' ' + (log.number_called || '') + ' — status then: ' + (log.status_at_call || '');
-  }).join('\n');
-}
-
+function getLastCallTimeValue(donor) { const lastLog = getLastCallLog(donor); return lastLog ? lastLog.called_at : (donor.last_called || donor.last_status_change || donor.updated_at || donor.created_at || ''); }
+function getCalledSortTime(donor) { const value = getLastCallTimeValue(donor); if (!value) return 9999999999999; const time = new Date(value).getTime(); return isNaN(time) ? 9999999999999 : time; }
+function sortByOldestLastCallThenBusiness(a,b) { const aTime = getCalledSortTime(a); const bTime = getCalledSortTime(b); if (aTime !== bTime) return aTime - bTime; return String(a.business_name || '').localeCompare(String(b.business_name || '')); }
+function getCallHistoryText(donor) { const logs = getCallLogsForDonor(donor); if (!logs.length) return 'No call log attempts yet.'; return logs.slice(0, 6).map((log, index) => (index + 1) + '. ' + getLastCalledDisplay(log.called_at) + ' — ' + (log.number_type || '') + ' ' + (log.number_called || '') + ' — status then: ' + (log.status_at_call || '')).join('\n'); }
 function normalisePhoneDigits(value) { return String(value || '').replace(/\D/g, ''); }
-function getPhoneCallLogHtml(donor, fieldName) {
-  const number = donor[fieldName] || '';
-  const fieldDigits = normalisePhoneDigits(number);
-  const label = fieldName === 'mobile' ? 'mobile' : 'main';
-  const logs = getCallLogsForDonor(donor).filter(log => {
-    const type = String(log.number_type || '').toLowerCase();
-    const calledDigits = normalisePhoneDigits(log.number_called || '');
-    return type.includes(label) || (fieldDigits && calledDigits && calledDigits === fieldDigits);
-  });
-  if (!logs.length) return '';
-  const bits = logs.slice(0, 3).map(log => getLastCalledDisplay(log.called_at) + ' ' + (log.status_at_call || '')).join('\n');
-  return '<div class="phone-call-log">Calls: ' + logs.length + '\n' + escapeHtml(bits) + '</div>';
-}
-
+function getPhoneCallLogHtml(donor, fieldName) { const number = donor[fieldName] || ''; const fieldDigits = normalisePhoneDigits(number); const label = fieldName === 'mobile' ? 'mobile' : 'main'; const logs = getCallLogsForDonor(donor).filter(log => { const type = String(log.number_type || '').toLowerCase(); const calledDigits = normalisePhoneDigits(log.number_called || ''); return type.includes(label) || (fieldDigits && calledDigits && calledDigits === fieldDigits); }); if (!logs.length) return ''; const bits = logs.slice(0, 3).map(log => getLastCalledDisplay(log.called_at) + ' ' + (log.status_at_call || '')).join('\n'); return '<div class="phone-call-log">Calls: ' + logs.length + '\n' + escapeHtml(bits) + '</div>'; }
 function getNextActionDate(donor) { return String(donor.callback_date || '9999-12-31'); }
 function sortByNextActionDateThenBusiness(a,b) { const dateCompare = getNextActionDate(a).localeCompare(getNextActionDate(b)); if (dateCompare !== 0) return dateCompare; return String(a.business_name || '').localeCompare(String(b.business_name || '')); }
 function hasSelectedFollowUpDate(donor) { return String(donor.callback_date || '').trim() !== ''; }
-function getSelectedDateSortTime(donor) {
-  if (!hasSelectedFollowUpDate(donor)) return 9999999999999;
-  const time = new Date(String(donor.callback_date).slice(0, 10) + 'T00:00:00').getTime();
-  return isNaN(time) ? 9999999999999 : time;
-}
-function sortEmailFollowUpList(a,b) {
-  // Selected follow-up dates take priority. Those rows come first, sorted nearest date first.
-  const aHasDate = hasSelectedFollowUpDate(a);
-  const bHasDate = hasSelectedFollowUpDate(b);
-  if (aHasDate !== bHasDate) return aHasDate ? -1 : 1;
-
-  if (aHasDate && bHasDate) {
-    const selectedDateCompare = getSelectedDateSortTime(a) - getSelectedDateSortTime(b);
-    if (selectedDateCompare !== 0) return selectedDateCompare;
-  }
-
-  // Within the same selected-date group, work oldest last call first so neglected follow-ups rise to the top.
-  const lastCallCompare = getCalledSortTime(a) - getCalledSortTime(b);
-  if (lastCallCompare !== 0) return lastCallCompare;
-
-  return String(a.business_name || '').localeCompare(String(b.business_name || ''));
-}
+function getSelectedDateSortTime(donor) { if (!hasSelectedFollowUpDate(donor)) return 9999999999999; const time = new Date(String(donor.callback_date).slice(0, 10) + 'T00:00:00').getTime(); return isNaN(time) ? 9999999999999 : time; }
+function sortEmailFollowUpList(a,b) { const aHasDate = hasSelectedFollowUpDate(a); const bHasDate = hasSelectedFollowUpDate(b); if (aHasDate !== bHasDate) return aHasDate ? -1 : 1; if (aHasDate && bHasDate) { const selectedDateCompare = getSelectedDateSortTime(a) - getSelectedDateSortTime(b); if (selectedDateCompare !== 0) return selectedDateCompare; } const lastCallCompare = getCalledSortTime(a) - getCalledSortTime(b); if (lastCallCompare !== 0) return lastCallCompare; return String(a.business_name || '').localeCompare(String(b.business_name || '')); }
 function getReportContactName(donor) { return donor.sale_contact_name || donor.contact_name || ''; }
-function getEmailGroupingNote(donor) {
-  const parts = [];
-  if (donor.email_followup_stage) parts.push(String(donor.email_followup_stage));
-  if (donor.email_followup_note) parts.push(String(donor.email_followup_note));
-  if (donor.last_email_followup_date) parts.push('Last email follow-up ' + formatNzShortDate(donor.last_email_followup_date));
-  if (donor.callback_date) parts.push('Follow-up ' + formatNzShortDate(donor.callback_date));
-  return parts.join(' | ');
-}
-
-
-function getEmailStageOptions(selectedStage) {
-  const options = ['', 'Email sent - waiting reply', 'Contact asked for email', 'Reception told me to email', 'Called after email - not checked yet', 'Will email me back', 'Meeting / decision pending', 'Follow-up email sent', 'Call again later', 'Reception message left', 'No response after email + calls'];
-  return options.map(option => '<option value="' + escapeHtml(option) + '" ' + (option === selectedStage ? 'selected' : '') + '>' + escapeHtml(option || 'Email follow-up stage') + '</option>').join('');
-}
-function getEmailStageBadgeHtml(donor) {
-  let html = '';
-  if (donor.email_followup_stage) html += '<br><span class="badge badge-purple">' + escapeHtml(donor.email_followup_stage) + '</span>';
-  if (donor.last_email_followup_date) html += '<br><span class="badge badge-blue">Follow-up email ' + escapeHtml(formatNzShortDate(donor.last_email_followup_date)) + '</span>';
-  if (currentFilter === 'email' || donor.email_followup_stage) html += '<br><select class="email-stage-select" onchange="updateEmailFollowupStage(' + donor.id + ', this.value)">' + getEmailStageOptions(donor.email_followup_stage || '') + '</select>';
-  return html;
-}
-
-function getStatusOptions(selectedStatus) {
-  const options = ['Not Called','No Answer','No Answer 2','No Answer 3','No Answer - Unblocked ID','Callback Requested','Will Call Me','Follow Up','Email Sent','Closed Sale','Personal Donation','Check Details','Check Number','Not Interested','No'];
-  return options.map(option => '<option ' + (option === selectedStatus ? 'selected' : '') + '>' + escapeHtml(option) + '</option>').join('');
-}
+function getEmailGroupingNote(donor) { const parts = []; if (donor.email_followup_stage) parts.push(String(donor.email_followup_stage)); if (donor.email_followup_note) parts.push(String(donor.email_followup_note)); if (donor.last_email_followup_date) parts.push('Last email follow-up ' + formatNzShortDate(donor.last_email_followup_date)); if (donor.callback_date) parts.push('Follow-up ' + formatNzShortDate(donor.callback_date)); return parts.join(' | '); }
+function getEmailStageOptions(selectedStage) { const options = ['', 'Email sent - waiting reply', 'Contact asked for email', 'Reception told me to email', 'Called after email - not checked yet', 'Will email me back', 'Meeting / decision pending', 'Follow-up email sent', 'Call again later', 'Reception message left', 'No response after email + calls']; return options.map(option => '<option value="' + escapeHtml(option) + '" ' + (option === selectedStage ? 'selected' : '') + '>' + escapeHtml(option || 'Email follow-up stage') + '</option>').join(''); }
+function getEmailStageBadgeHtml(donor) { let html = ''; if (donor.email_followup_stage) html += '<br><span class="badge badge-purple">' + escapeHtml(donor.email_followup_stage) + '</span>'; if (donor.last_email_followup_date) html += '<br><span class="badge badge-blue">Follow-up email ' + escapeHtml(formatNzShortDate(donor.last_email_followup_date)) + '</span>'; if (currentFilter === 'email' || donor.email_followup_stage) html += '<br><select class="email-stage-select" onchange="updateEmailFollowupStage(' + donor.id + ', this.value)">' + getEmailStageOptions(donor.email_followup_stage || '') + '</select>'; return html; }
+function getStatusOptions(selectedStatus) { const options = ['Not Called','No Answer','No Answer 2','No Answer 3','No Answer - Unblocked ID','Callback Requested','Will Call Me','Follow Up','Email Sent','Closed Sale','Personal Donation','Check Details','Check Number','Put Aside','Not Interested','No']; return options.map(option => '<option ' + (option === selectedStatus ? 'selected' : '') + '>' + escapeHtml(option) + '</option>').join(''); }
 function shortText(value, maxLength) { const text = String(value || ''); return text.length <= maxLength ? text : text.slice(0, maxLength) + '...'; }
-function getNoAnswerActionHtml(donor) {
-  if (!isNoAnswer(donor)) return '';
-  const stage = getNoAnswerStage(donor);
-  if (stage <= 1) return '<br><button class="success-button" onclick="markNoAnswerStage(' + donor.id + ', 2)">After call: still no answer → 2nd</button>';
-  if (stage === 2) return '<br><button class="success-button" onclick="markNoAnswerStage(' + donor.id + ', 3)">After call: still no answer → 3rd</button>';
-  if (stage === 3) return '<br><button class="warning-button" onclick="markNoAnswerStage(' + donor.id + ', 4)">Move to call with unblocked ID</button>';
-  return '<br><button class="success-button" onclick="markNoAnswerStage(' + donor.id + ', 4)">After unblocked call: still no answer</button>';
-}
-
+function getNoAnswerActionHtml(donor) { if (!isNoAnswer(donor)) return ''; const stage = getNoAnswerStage(donor); if (stage <= 1) return '<br><button class="success-button" onclick="markNoAnswerStage(' + donor.id + ', 2)">After call: still no answer → 2nd</button>'; if (stage === 2) return '<br><button class="success-button" onclick="markNoAnswerStage(' + donor.id + ', 3)">After call: still no answer → 3rd</button>'; if (stage === 3) return '<br><button class="warning-button" onclick="markNoAnswerStage(' + donor.id + ', 4)">Move to call with unblocked ID</button>'; return '<br><button class="success-button" onclick="markNoAnswerStage(' + donor.id + ', 4)">After unblocked call: still no answer</button>'; }
 function getNoAnswerOutcomeLabel(donor) { const stage = getNoAnswerStage(donor); if (!isNoAnswer(donor)) return 'No Answer'; if (stage <= 1) return 'No Answer → 2'; if (stage === 2) return 'No Answer → 3'; if (stage === 3) return 'No Answer → show ID'; return 'No Answer again'; }
-function getAfterCallButtonsHtml(donor) {
-  return '<div class="outcome-buttons">' +
-    '<button class="warning-button" onclick="quickOutcome(' + donor.id + ', \'No Answer\')">' + escapeHtml(getNoAnswerOutcomeLabel(donor)) + '</button>' +
-    '<button class="success-button" onclick="quickOutcome(' + donor.id + ', \'Closed Sale\')">Closed Sale</button>' +
-    '<button class="danger-button" onclick="quickOutcome(' + donor.id + ', \'No\')">No</button>' +
-    '<button onclick="quickOutcome(' + donor.id + ', \'Callback Requested\')">Callback</button>' +
-    '<button onclick="quickOutcome(' + donor.id + ', \'Email Sent\')">Email Sent</button>' +
-    '<button onclick="quickOutcome(' + donor.id + ', \'Will Call Me\')">Will Call Me</button>' +
-    '</div>';
-}
-
-function getFirstUsefulLine(text, keywords, maxLength) {
-  const source = String(text || '');
-  const lines = source.split(/[\n|]+/).map(x => x.trim()).filter(Boolean);
-  const lowerKeywords = keywords.map(k => k.toLowerCase());
-  const found = lines.find(line => lowerKeywords.some(k => line.toLowerCase().includes(k)));
-  return shortText(found || '', maxLength || 130);
-}
-function getLocalSchoolLine(donor) {
-  if (donor.local_school_angle) return donor.local_school_angle;
-  return getFirstUsefulLine([donor.notes, donor.phone_notes].join('\n'), ['school', 'kids from', 'local area', 'community'], 150);
-}
-function cleanCallNoteLine(line) {
-  let text = String(line || '').trim();
-  if (!text) return '';
-  text = text.replace(/^\s*(ASK FOR|TARGET|ANGLE|PHONE|HISTORY|CARD\/AI NOTE|CARD COMMENT|SOURCE|PRIORITY|CATEGORY)\s*:\s*/i, '');
-  text = text.replace(/\s*\|\s*/g, ' — ');
-  const lower = text.toLowerCase();
-  const noisy = [
-    'id visible / entered', 'details may need pcl lookup', 'if id is wrong', 'source photo', 'source:', 'public source',
-    'http://', 'https://', 'www.', 'suggested pitch', 'ticket pitch', 'saved recommended ask', 'cold/promo flags',
-    'not auto-set', 'card/ai note', 'visible card history', 'history:', 'ask for:', 'target:', 'priority:', 'category:',
-    'source northland', 'source 102', 'source photo', 'photo 10'
-  ];
-  if (noisy.some(term => lower.includes(term))) return '';
-  return text;
-}
-function getCleanCallNote(donor) {
-  const lines = String(donor.notes || '').split(/[\n|]+/).map(cleanCallNoteLine).filter(Boolean);
-  const keywords = ['spoke', 'confirmed', 'yes', 'no answer', 'call', 'owner', 'manager', 'contact', 'asked', 'reception', 'meeting', 'decision', 'email', 'gentle', 'hospital', 'duplicate', 'wrong', 'disconnected'];
-  const priority = lines.find(line => keywords.some(k => line.toLowerCase().includes(k)));
-  return shortText(priority || lines[0] || '', 150);
-}
-function getCleanLocalSchoolLine(donor) {
-  let line = String(donor.local_school_angle || '').trim();
-  if (!line) line = getFirstUsefulLine([donor.notes, donor.phone_notes].join('\n'), ['school/local angle', 'school', 'kids from', 'local area', 'community'], 150);
-  line = line.replace(/^.*school\/local angle:\s*/i, '').replace(/^.*local school \/ pitch\s*/i, '').trim();
-  if (line.toLowerCase().startsWith('history:')) line = line.replace(/^history:.*?(school|local|community)/i, '$1');
-  return shortText(line, 150);
-}
-function buildNotesRecoveryHtml(donor) {
-  let html = '';
-  const dupText = getDuplicateWarningText(donor);
-  const schoolLine = getCleanLocalSchoolLine(donor);
-  const importantNote = getCleanCallNote(donor);
-  if (dupText) html += '<div class="detail-block duplicate-block"><span class="detail-title">Duplicate risk</span>' + escapeHtml(shortText(dupText, 180)) + '</div>';
-  if (schoolLine) html += '<div class="detail-block"><span class="detail-title">Local pitch</span>' + escapeHtml(shortText(schoolLine, 150)) + '</div>';
-  if (donor.check_details_reason) html += '<div class="detail-block check-details-block"><span class="detail-title">Check details</span>' + escapeHtml(shortText(donor.check_details_reason, 130)) + '</div>';
-  if (importantNote) html += '<div class="detail-block"><span class="detail-title">Call note</span>' + escapeHtml(shortText(importantNote, 150)) + '</div>';
-  if (donor.email_followup_note || donor.email_followup_stage) html += '<div class="detail-block phone-notes-block"><span class="detail-title">Email follow-up</span>' + escapeHtml(shortText([donor.email_followup_stage, donor.email_followup_note].filter(Boolean).join(' — '), 150)) + '</div>';
-  if (!html) html = '<span class="badge compact-muted">No call notes</span>';
-  return html;
-}
+function getAfterCallButtonsHtml(donor) { return '<div class="outcome-buttons"><button class="warning-button" onclick="quickOutcome(' + donor.id + ', \'No Answer\')">' + escapeHtml(getNoAnswerOutcomeLabel(donor)) + '</button><button class="success-button" onclick="quickOutcome(' + donor.id + ', \'Closed Sale\')">Closed Sale</button><button class="danger-button" onclick="quickOutcome(' + donor.id + ', \'No\')">No</button><button onclick="quickOutcome(' + donor.id + ', \'Callback Requested\')">Callback</button><button onclick="quickOutcome(' + donor.id + ', \'Email Sent\')">Email Sent</button><button onclick="quickOutcome(' + donor.id + ', \'Will Call Me\')">Will Call Me</button></div>'; }
+function getFirstUsefulLine(text, keywords, maxLength) { const source = String(text || ''); const lines = source.split(/[\n|]+/).map(x => x.trim()).filter(Boolean); const lowerKeywords = keywords.map(k => k.toLowerCase()); const found = lines.find(line => lowerKeywords.some(k => line.toLowerCase().includes(k))); return shortText(found || '', maxLength || 130); }
+function cleanCallNoteLine(line) { let text = String(line || '').trim(); if (!text) return ''; text = text.replace(/^\s*(ASK FOR|TARGET|ANGLE|PHONE|HISTORY|CARD\/AI NOTE|CARD COMMENT|SOURCE|PRIORITY|CATEGORY)\s*:\s*/i, ''); text = text.replace(/\s*\|\s*/g, ' — '); const lower = text.toLowerCase(); const noisy = ['id visible / entered','details may need pcl lookup','if id is wrong','source photo','source:','public source','http://','https://','www.','suggested pitch','ticket pitch','saved recommended ask','cold/promo flags','not auto-set','card/ai note','visible card history','history:','ask for:','target:','priority:','category:','source northland','source 102','photo 10']; if (noisy.some(term => lower.includes(term))) return ''; return text; }
+function getCleanCallNote(donor) { const lines = String(donor.notes || '').split(/[\n|]+/).map(cleanCallNoteLine).filter(Boolean); const keywords = ['spoke','confirmed','yes','no answer','call','owner','manager','contact','asked','reception','meeting','decision','email','gentle','hospital','duplicate','wrong','disconnected']; const priority = lines.find(line => keywords.some(k => line.toLowerCase().includes(k))); return shortText(priority || lines[0] || '', 150); }
+function getCleanLocalSchoolLine(donor) { let line = String(donor.local_school_angle || '').trim(); if (!line) line = getFirstUsefulLine([donor.notes, donor.phone_notes].join('\n'), ['school/local angle','school','kids from','local area','community'], 150); line = line.replace(/^.*school\/local angle:\s*/i, '').replace(/^.*local school \/ pitch\s*/i, '').trim(); return shortText(line, 150); }
+function buildNotesRecoveryHtml(donor) { let html = ''; const dupText = getDuplicateWarningText(donor); const schoolLine = getCleanLocalSchoolLine(donor); const importantNote = getCleanCallNote(donor); if (dupText) html += '<div class="detail-block duplicate-block"><span class="detail-title">Duplicate risk</span>' + escapeHtml(shortText(dupText, 180)) + '</div>'; if (schoolLine) html += '<div class="detail-block"><span class="detail-title">Local pitch</span>' + escapeHtml(shortText(schoolLine, 150)) + '</div>'; const historyGroupDisplay = getHistoryGroupDisplay(donor); if (historyGroupDisplay) html += '<div class="detail-block"><span class="detail-title">History group</span>' + escapeHtml(historyGroupDisplay) + '</div>'; if (isColdBonusEligible(donor)) html += '<div class="detail-block"><span class="detail-title">Cold bonus</span>' + escapeHtml(getColdReason(donor)) + '</div>'; if (donor.check_details_reason) html += '<div class="detail-block check-details-block"><span class="detail-title">Check details</span>' + escapeHtml(shortText(donor.check_details_reason, 130)) + '</div>'; if (importantNote) html += '<div class="detail-block"><span class="detail-title">Call note</span>' + escapeHtml(shortText(importantNote, 150)) + '</div>'; if (donor.email_followup_note || donor.email_followup_stage) html += '<div class="detail-block phone-notes-block"><span class="detail-title">Email follow-up</span>' + escapeHtml(shortText([donor.email_followup_stage, donor.email_followup_note].filter(Boolean).join(' — '), 150)) + '</div>'; if (!html) html = '<span class="badge compact-muted">No call notes</span>'; return html; }
 
 function renderDonors() {
   renderBonusStrip();
@@ -1193,12 +1005,8 @@ function renderDonors() {
   const visibleData = filteredData.slice(0, currentRenderLimit);
   const hiddenCount = Math.max(0, filteredData.length - visibleData.length);
   const callLogNote = callLogReady ? 'Call logging active.' : 'Call logging not active — run SQL setup for total call attempts/full history.';
-  if (resultsInfo) {
-    resultsInfo.innerHTML = '<strong>Showing ' + visibleData.length + ' of ' + filteredData.length + '</strong>' +
-      (hiddenCount > 0 ? ' <button class="load-more-button" onclick="loadMoreRows()">Load next ' + Math.min(RENDER_STEP, hiddenCount) + '</button>' : '') +
-      ' <span class="help-text">' + escapeHtml(callLogNote) + ' Sort: ' + escapeHtml(currentSortMode) + '. Section: ' + escapeHtml(currentSectionMode) + '. Rows only move after an outcome is recorded.' + (pinnedContactId ? ' Green row pinned after edit/status change: ' + escapeHtml(pinnedContactReason) + ' <button onclick="clearPinnedContact()">Clear pinned row</button>' : '') + '</span>';
-  }
-  const rows = visibleData.map(donor => {
+  if (resultsInfo) resultsInfo.innerHTML = '<strong>Showing ' + visibleData.length + ' of ' + filteredData.length + '</strong>' + (hiddenCount > 0 ? ' <button class="load-more-button" onclick="loadMoreRows()">Load next ' + Math.min(RENDER_STEP, hiddenCount) + '</button>' : '') + ' <span class="help-text">' + escapeHtml(callLogNote) + ' Sort: ' + escapeHtml(currentSortMode) + '. Section: ' + escapeHtml(currentSectionMode) + '. Rows only move after an outcome is recorded.' + (shouldHideFinishedCampaignsInCurrentView() ? ' Finished campaigns hidden from this active all-campaign working list.' : '') + (pinnedContactId ? ' Green row pinned after edit/status change: ' + escapeHtml(pinnedContactReason) + ' <button onclick="clearPinnedContact()">Clear pinned row</button>' : '') + '</span>';
+  donorTable.innerHTML = visibleData.map(donor => {
     const statusClass = donor.status ? String(donor.status).toLowerCase().replaceAll(' ', '-') : '';
     const rowClass = (currentCallingId === donor.id ? ' currently-calling' : '') + (Number(pinnedContactId) === Number(donor.id) ? ' recently-touched' : '');
     const campaignText = escapeHtml(getCampaignCode(donor)) + '<br>' + escapeHtml(donor.campaign_area || '');
@@ -1211,485 +1019,123 @@ function renderDonors() {
     const duplicateBadge = hasDuplicateRisk(donor) ? '<br><span class="badge badge-red">possible duplicate ID</span>' : '';
     const saleNumberBadge = donor.sale_number ? '<br><span class="badge badge-green">Sale #' + escapeHtml(donor.sale_number) + '</span>' : '';
     const noAnswerStageBadge = isNoAnswer(donor) ? '<br><span class="badge badge-yellow">No answer attempt ' + getNoAnswerStage(donor) + (isNoAnswerUnblocked(donor) ? ' / show ID' : '') + '</span>' : '';
-    const noAnswerAction = getNoAnswerActionHtml(donor);
-    const afterCallButtons = getAfterCallButtonsHtml(donor);
-    const phoneRecoveryBadge = ''; // source/phone-notes kept in full edit view, not the row badge
-    const callCountBadge = ''; // call log now shows under the phone numbers
-    const coldBonusBadge = isColdBonusEligible(donor) ? '<br><span class="badge badge-green">cold bonus eligible</span>' : '';
+    const coldBonusBadge = isColdBonusEligible(donor) ? '<br><span class="badge badge-green">cold/pre-2020</span>' : '';
     const enteredText = donor.pcl_entered ? 'Yes' : 'No';
     const enteredButton = isClosedSale(donor) && !donor.pcl_entered ? '<br><button class="success-button" onclick="updatePclEntered(' + donor.id + ', true)">Mark Entered</button>' : '';
     const mobileButton = donor.mobile ? '<button onclick="callNumberFromField(' + donor.id + ', \'mobile\')">Call Mobile</button>' : '<span class="badge">No mobile</span>';
     const mainButton = donor.office_phone ? '<button onclick="callNumberFromField(' + donor.id + ', \'office_phone\')">Call Main</button>' : '<span class="badge">No main</span>';
     const emailDate = donor.email_sent_date ? '<br><span class="badge badge-blue">Email sent ' + escapeHtml(formatNzShortDate(donor.email_sent_date)) + '</span>' : '';
     const followUpDate = donor.callback_date ? '<br><span class="badge badge-yellow">Follow-up ' + escapeHtml(formatNzShortDate(donor.callback_date)) + '</span>' : '';
-    const emailStageBadge = getEmailStageBadgeHtml(donor);
     const lastCallValue = getLastCallTimeValue(donor);
     const askInfo = getRecommendedAskInfo(donor);
     const askInputValue = getAskInputValue(donor);
     const saleLockedBadge = isClosedSale(donor) ? '<span class="sale-locked-badge">sale amount locked</span>' : '';
     const pitch = usesTicketPitch(donor) ? '<span class="ask-reason"><strong>' + escapeHtml(getTicketPitchForAmount(askInputValue || askInfo.amount, donor)) + '</strong></span>' : '';
-    return `
-      <tr id="row-${donor.id}" class="${statusClass}${rowClass}">
-        <td class="id-cell">${escapeHtml(donor.card_id || '')}</td>
-        <td class="campaign-cell">${campaignText}</td>
-        <td class="business-cell">${escapeHtml(donor.business_name || '') || '<span class="badge badge-yellow">Needs PCL match</span>'}${saleNumberBadge}${duplicateBadge}${checkBadge}${noAnswerStageBadge}${idOnlyBadge}${noPhoneBadge}${phoneRecoveryBadge}${callCountBadge}${coldBonusBadge}</td>
-        <td class="contact-cell">${escapeHtml(contactDisplay)}${saleContactBadge}${personalBadge}</td>
-        <td class="phone-cell">${escapeHtml(donor.mobile || '')}<br>${mobileButton}${getPhoneCallLogHtml(donor, 'mobile')}</td>
-        <td class="phone-cell">${escapeHtml(donor.office_phone || '')}<br>${mainButton}${noAnswerAction}${getPhoneCallLogHtml(donor, 'office_phone')}</td>
-        <td class="email-cell">${escapeHtml(donor.email || '')}${emailDate}${followUpDate}${emailStageBadge}</td>
-        <td class="location-cell">${escapeHtml(donor.location || '')}</td>
-        <td class="last-called-cell">${escapeHtml(getLastCalledDisplay(lastCallValue))}<br><span class="badge">${getCallAttemptCount(donor)} calls</span></td>
-        <td><select onchange="updateStatus(${donor.id}, this.value)" class="status-select">${getStatusOptions(donor.status || 'Not Called')}</select>${afterCallButtons}</td>
-        <td class="ask-cell"><span class="ask-label">${isClosedSale(donor) ? 'Sale $' : 'Ask'}</span><input id="sale-amount-${donor.id}" type="number" value="${escapeHtml(askInputValue || '')}" oninput="cacheSaleAmount(${donor.id}, this.value)" onchange="updateSuggestedAsk(${donor.id}, this.value)" class="amount-input"><span class="${donor.suggested_ask || isClosedSale(donor) ? 'ask-saved' : 'ask-smart'}">${donor.suggested_ask || isClosedSale(donor) ? 'saved' : 'smart'}</span>${saleLockedBadge}${pitch}<span class="ask-reason">${escapeHtml(shortText(askInfo.reason, 130))}</span></td>
-        <td class="pcl-cell"><input type="checkbox" ${donor.pcl_entered ? 'checked' : ''} onchange="updatePclEntered(${donor.id}, this.checked)"><br>${enteredText}${enteredButton}</td>
-        <td class="sales-history-cell">${escapeHtml(shortText(donor.sales_history || '', 260)) || '<span class="badge">No history</span>'}</td>
-        <td class="notes-cell">${buildNotesRecoveryHtml(donor)}<br><button onclick="loadThisContact(${donor.id})">Open full notes</button></td>
-        <td><input type="date" value="${escapeHtml(donor.callback_date || '')}" onchange="updateCallbackDate(${donor.id}, this.value)" class="date-input"></td>
-        <td><button onclick="loadThisContact(${donor.id})">Edit</button></td>
-      </tr>
-    `;
-  });
-  donorTable.innerHTML = rows.join('');
+    return '<tr id="row-' + donor.id + '" class="' + statusClass + rowClass + '">' +
+      '<td class="id-cell">' + escapeHtml(donor.card_id || '') + '</td>' +
+      '<td class="campaign-cell">' + campaignText + '</td>' +
+      '<td class="business-cell">' + (escapeHtml(donor.business_name || '') || '<span class="badge badge-yellow">Needs PCL match</span>') + saleNumberBadge + duplicateBadge + checkBadge + noAnswerStageBadge + idOnlyBadge + noPhoneBadge + coldBonusBadge + '</td>' +
+      '<td class="contact-cell">' + escapeHtml(contactDisplay) + saleContactBadge + personalBadge + '</td>' +
+      '<td class="phone-cell">' + escapeHtml(donor.mobile || '') + '<br>' + mobileButton + getPhoneCallLogHtml(donor, 'mobile') + '</td>' +
+      '<td class="phone-cell">' + escapeHtml(donor.office_phone || '') + '<br>' + mainButton + getNoAnswerActionHtml(donor) + getPhoneCallLogHtml(donor, 'office_phone') + '</td>' +
+      '<td class="email-cell">' + escapeHtml(donor.email || '') + emailDate + followUpDate + getEmailStageBadgeHtml(donor) + '</td>' +
+      '<td class="location-cell">' + escapeHtml(donor.location || '') + '</td>' +
+      '<td class="last-called-cell">' + escapeHtml(getLastCalledDisplay(lastCallValue)) + '<br><span class="badge">' + getCallAttemptCount(donor) + ' calls</span></td>' +
+      '<td><select onchange="updateStatus(' + donor.id + ', this.value)" class="status-select">' + getStatusOptions(donor.status || 'Not Called') + '</select>' + getAfterCallButtonsHtml(donor) + '</td>' +
+      '<td class="ask-cell"><span class="ask-label">' + (isClosedSale(donor) ? 'Sale $' : 'Ask') + '</span><input id="sale-amount-' + donor.id + '" type="number" value="' + escapeHtml(askInputValue || '') + '" oninput="cacheSaleAmount(' + donor.id + ', this.value)" onchange="updateSuggestedAsk(' + donor.id + ', this.value)" class="amount-input"><span class="' + (donor.suggested_ask || isClosedSale(donor) ? 'ask-saved' : 'ask-smart') + '">' + (donor.suggested_ask || isClosedSale(donor) ? 'saved' : 'smart') + '</span>' + saleLockedBadge + pitch + '<span class="ask-reason">' + escapeHtml(shortText(askInfo.reason, 130)) + '</span></td>' +
+      '<td class="pcl-cell"><input type="checkbox" ' + (donor.pcl_entered ? 'checked' : '') + ' onchange="updatePclEntered(' + donor.id + ', this.checked)"><br>' + enteredText + enteredButton + '</td>' +
+      '<td class="sales-history-cell">' + (escapeHtml(shortText(donor.sales_history || '', 260)) || '<span class="badge">No history</span>') + '</td>' +
+      '<td class="notes-cell">' + buildNotesRecoveryHtml(donor) + '<br><button onclick="loadThisContact(' + donor.id + ')">Open full notes</button></td>' +
+      '<td><input type="date" value="' + escapeHtml(donor.callback_date || '') + '" onchange="updateCallbackDate(' + donor.id + ', this.value)" class="date-input"></td>' +
+      '<td><button onclick="loadThisContact(' + donor.id + ')">Edit</button></td>' +
+      '</tr>';
+  }).join('');
 }
 
-async function logCallAttempt(donor, number, numberType) {
-  currentCallingId = donor.id;
-  const row = document.getElementById('row-' + donor.id);
-  if (row) row.classList.add('currently-calling');
-  const payload = { donor_id: donor.id, card_id: donor.card_id || '', business_name: donor.business_name || '', number_called: number || '', number_type: numberType || '', campaign_code: getCampaignCode(donor), status_at_call: donor.status || '' };
-  const { data, error } = await client.from('crm_call_log').insert([payload]).select().single();
-  if (error) {
-    console.warn('Call log insert failed:', error);
-    showWarning('Call opened, but call attempt was not logged. Run the crm_call_log SQL setup once. Error: ' + (error.message || ''));
-    return;
-  }
-  callLogReady = true;
-  callLogs.unshift(data);
-}
-async function callNumberFromField(id, fieldName) {
-  const donor = allDonors.find(item => item.id === id);
-  const number = donor ? donor[fieldName] : '';
-  const label = fieldName === 'mobile' ? 'mobile' : 'office_phone';
-  await callNumber(number, donor, label);
-}
-async function callNumber(number, donor, numberType) {
-  if (!number || !donor) { alert('No number on this contact. Use the card ID in PCL, then update details or delete if the ID is wrong.'); return; }
-  await logCallAttempt(donor, number, numberType);
-  window.location.href = 'tel:' + number;
-}
-
-async function quickOutcome(id, outcome) {
-  const donor = allDonors.find(item => Number(item.id) === Number(id));
-  if (outcome === 'No Answer') {
-    const stage = donor ? getNoAnswerStage(donor) : 0;
-    if (stage <= 0) return updateStatus(id, 'No Answer');
-    if (stage === 1) return markNoAnswerStage(id, 2);
-    if (stage === 2) return markNoAnswerStage(id, 3);
-    return markNoAnswerStage(id, 4);
-  }
-  return updateStatus(id, outcome);
-}
-
-async function markNoAnswerStage(id, stage) {
-  const nowIso = new Date().toISOString();
-  const newStatus = getNoAnswerStatusForStage(stage);
-  const updateData = { status: newStatus, last_status_change: nowIso, last_called: nowIso };
-  const { error } = await client.from('donors').update(updateData).eq('id', id);
-  if (error) { console.error('No answer stage update failed:', error); alert('Failed to update no-answer stage: ' + (error.message || 'Unknown error')); return; }
-  const donor = allDonors.find(item => item.id === id);
-  if (donor) { donor.status = newStatus; donor.last_status_change = nowIso; donor.last_called = nowIso; }
-  currentCallingId = null;
-  pinContact(id, 'no-answer outcome recorded — kept visible');
-  renderDonors();
-}
-function getNextSaleNumberLocal() {
-  const used = allDonors.map(d => Number(d.sale_number || 0)).filter(n => Number.isFinite(n) && n > 0);
-  const maxUsed = used.length ? Math.max(...used) : 0;
-  return maxUsed + 1;
-}
-async function syncSaleCounter(numberValue) {
-  try { await client.from('crm_sale_counter').upsert({ id: 1, last_sale_number: Number(numberValue), updated_at: new Date().toISOString() }); }
-  catch (err) { console.warn('Sale counter sync skipped/failed:', err); }
-}
+async function logCallAttempt(donor, number, numberType) { currentCallingId = donor.id; const row = document.getElementById('row-' + donor.id); if (row) row.classList.add('currently-calling'); const payload = { donor_id: donor.id, card_id: donor.card_id || '', business_name: donor.business_name || '', number_called: number || '', number_type: numberType || '', campaign_code: getCampaignCode(donor), status_at_call: donor.status || '' }; const { data, error } = await client.from('crm_call_log').insert([payload]).select().single(); if (error) { console.warn('Call log insert failed:', error); showWarning('Call opened, but call attempt was not logged. Run the crm_call_log SQL setup once. Error: ' + (error.message || '')); return; } callLogReady = true; callLogs.unshift(data); }
+async function callNumberFromField(id, fieldName) { const donor = allDonors.find(item => item.id === id); const number = donor ? donor[fieldName] : ''; const label = fieldName === 'mobile' ? 'mobile' : 'office_phone'; await callNumber(number, donor, label); }
+async function callNumber(number, donor, numberType) { if (!number || !donor) { alert('No number on this contact. Use the card ID in PCL, then update details or delete if the ID is wrong.'); return; } await logCallAttempt(donor, number, numberType); window.location.href = 'tel:' + number; }
+async function quickOutcome(id, outcome) { const donor = allDonors.find(item => Number(item.id) === Number(id)); if (outcome === 'No Answer') { const stage = donor ? getNoAnswerStage(donor) : 0; if (stage <= 0) return updateStatus(id, 'No Answer'); if (stage === 1) return markNoAnswerStage(id, 2); if (stage === 2) return markNoAnswerStage(id, 3); return markNoAnswerStage(id, 4); } return updateStatus(id, outcome); }
+async function markNoAnswerStage(id, stage) { const nowIso = new Date().toISOString(); const newStatus = getNoAnswerStatusForStage(stage); const updateData = { status: newStatus, last_status_change: nowIso, last_called: nowIso }; const { error } = await client.from('donors').update(updateData).eq('id', id); if (error) { console.error('No answer stage update failed:', error); alert('Failed to update no-answer stage: ' + (error.message || 'Unknown error')); return; } updateLocalDonor(id, updateData); currentCallingId = null; pinContact(id, 'no-answer outcome recorded — kept visible'); renderDonors(); }
+function getNextSaleNumberLocal() { const used = allDonors.map(d => Number(d.sale_number || 0)).filter(n => Number.isFinite(n) && n > 0); return (used.length ? Math.max(...used) : 0) + 1; }
+async function syncSaleCounter(numberValue) { try { await client.from('crm_sale_counter').upsert({ id: 1, last_sale_number: Number(numberValue), updated_at: new Date().toISOString() }); } catch (err) { console.warn('Sale counter sync skipped/failed:', err); } }
 async function updateStatus(id, status) {
-  const nowIso = new Date().toISOString();
-  const today = todayString();
-  const donor = allDonors.find(item => Number(item.id) === Number(id)) || {};
-  const updateData = { status: status, last_status_change: nowIso };
-  if (status === 'Closed Sale' || status === 'Personal Donation') {
-    const lockedAmount = getEnteredSaleAmountForStatusUpdate(id, donor);
-    updateData.last_called = nowIso;
-    updateData.sale_date = donor.sale_date || today;
-    updateData.campaign_code = donor.campaign_code || (currentCampaignFilter !== 'all' ? currentCampaignFilter : DEFAULT_CAMPAIGN_CODE);
-    updateData.sale_type = status === 'Personal Donation' ? 'Personal Donation' : (donor.sale_type || 'Business Sale');
-    addOptionalSaleAmountFields(updateData, donor, lockedAmount);
-    if (hasOptionalDonorColumn('cold_bonus_eligible') && isColdBonusEligible(donor)) updateData.cold_bonus_eligible = true;
-    if (!donor.sale_number) { const nextSaleNumber = getNextSaleNumberLocal(); updateData.sale_number = nextSaleNumber; await syncSaleCounter(nextSaleNumber); }
-  }
+  const nowIso = new Date().toISOString(); const today = todayString(); const donor = allDonors.find(item => Number(item.id) === Number(id)) || {}; const updateData = { status: status, last_status_change: nowIso };
+  if (status === 'Closed Sale' || status === 'Personal Donation') { const lockedAmount = getEnteredSaleAmountForStatusUpdate(id, donor); updateData.last_called = nowIso; updateData.sale_date = donor.sale_date || today; updateData.campaign_code = donor.campaign_code || (currentCampaignFilter !== 'all' ? currentCampaignFilter : DEFAULT_CAMPAIGN_CODE); updateData.sale_type = status === 'Personal Donation' ? 'Personal Donation' : (donor.sale_type || 'Business Sale'); addOptionalSaleAmountFields(updateData, donor, lockedAmount); if (isColdBonusEligible(donor)) { if (hasOptionalDonorColumn('cold_bonus_eligible')) updateData.cold_bonus_eligible = true; if (hasOptionalDonorColumn('cold_card')) updateData.cold_card = true; } if (!donor.sale_number) { const nextSaleNumber = getNextSaleNumberLocal(); updateData.sale_number = nextSaleNumber; await syncSaleCounter(nextSaleNumber); } }
   if (status === 'Email Sent') { updateData.email_sent_date = today; updateData.last_called = nowIso; if (!donor.email_followup_stage) updateData.email_followup_stage = 'Email sent - waiting reply'; }
   if (status === 'Check Details' || status === 'Check Number') updateData.check_details_date = today;
   if (status === 'No Answer' || status === 'No Answer 2' || status === 'No Answer 3' || status === 'No Answer - Unblocked ID') updateData.last_called = nowIso;
-  if (status === 'Callback Requested' || status === 'Will Call Me' || status === 'Not Interested' || status === 'No') updateData.last_called = nowIso;
+  if (status === 'Callback Requested' || status === 'Will Call Me' || status === 'Not Interested' || status === 'No' || status === 'Check Number' || status === 'Put Aside') updateData.last_called = nowIso;
   const { error } = await client.from('donors').update(updateData).eq('id', id);
   if (error) { console.error('Status update failed:', error); alert('Failed to save status: ' + error.message); }
-  else {
-    currentCallingId = null;
-    const saved = updateLocalDonor(id, updateData);
-    if (status === 'Closed Sale' || status === 'Personal Donation') clearPendingSaleAmount(id);
-    pinContact(id, 'status updated — kept visible so it does not vanish');
-    if (saved) fillEditForm(saved);
-    renderDonors();
-  }
+  else { currentCallingId = null; const saved = updateLocalDonor(id, updateData); if (status === 'Closed Sale' || status === 'Personal Donation') clearPendingSaleAmount(id); pinContact(id, 'status updated — kept visible so it does not vanish'); if (saved) fillEditForm(saved); renderDonors(); }
 }
-async function updateNotes(id, notes) {
-  const { error } = await client.from('donors').update({ notes: notes }).eq('id', id);
-  if (error) { console.error('Notes update failed:', error); alert('Failed to save notes: ' + error.message); }
-  else { const donor = allDonors.find(item => item.id === id); if (donor) donor.notes = notes; pinContact(id, 'notes changed — kept visible'); }
-}
-async function updateCallbackDate(id, callback_date) {
-  const { error } = await client.from('donors').update({ callback_date: callback_date || null }).eq('id', id);
-  if (error) { console.error('Next-action date update failed:', error); alert('Failed to save date: ' + error.message); }
-  else { const donor = allDonors.find(item => item.id === id); if (donor) donor.callback_date = callback_date || null; pinContact(id, 'date changed — row held in place'); /* no render: changing date should not jump the row */ }
-}
-async function updateSuggestedAsk(id, suggested_ask) {
-  cacheSaleAmount(id, suggested_ask);
-  const donor = allDonors.find(item => Number(item.id) === Number(id)) || {};
-  const amountValue = parseMoneyNumber(suggested_ask);
-  const updateData = { suggested_ask: suggested_ask || null };
-  if (isClosedSale(donor) && amountValue > 0) addOptionalSaleAmountFields(updateData, donor, amountValue);
-  const { error } = await client.from('donors').update(updateData).eq('id', id);
-  if (error) { console.error('Amount update failed:', error); alert('Failed to save amount: ' + error.message); }
-  else {
-    updateLocalDonor(id, updateData);
-    clearPendingSaleAmount(id);
-    pinContact(id, 'amount changed — kept visible');
-    renderDonors();
-  }
-}
-
-async function updateEmailFollowupStage(id, stage) {
-  const today = todayString();
-  const updateData = { email_followup_stage: stage || null };
-  if (stage === 'Follow-up email sent') updateData.last_email_followup_date = today;
-  if (stage && !isEmailFollowUp(allDonors.find(item => Number(item.id) === Number(id)) || {})) updateData.status = 'Email Sent';
-  const { error } = await client.from('donors').update(updateData).eq('id', id);
-  if (error) { console.error('Email follow-up stage update failed:', error); alert('Failed to save email stage. Run the v18 SQL setup first. ' + error.message); }
-  else { updateLocalDonor(id, updateData); pinContact(id, 'email follow-up stage changed — kept visible'); renderDonors(); }
-}
-
-async function updatePclEntered(id, pcl_entered) {
-  const { error } = await client.from('donors').update({ pcl_entered: pcl_entered }).eq('id', id);
-  if (error) { console.error('PCL entered update failed:', error); alert('Failed to save entered status: ' + error.message); }
-  else { updateLocalDonor(id, { pcl_entered: pcl_entered }); pinContact(id, 'entered checkbox changed — kept visible'); renderDonors(); }
-}
-function calculateColdCard(lastAnySaleYear, salesHistory) {
-  const explicitYear = Number(lastAnySaleYear || 0); if (explicitYear) return explicitYear <= 2020;
-  const history = String(salesHistory || '').trim(); if (!history) return true;
-  const lowerHistory = history.toLowerCase(); if (lowerHistory.includes('no sale history') || lowerHistory.includes('no sales history') || lowerHistory.includes('no visible sale history') || lowerHistory.includes('no visible sales history')) return true;
-  const years = history.match(/\b(19|20)\d{2}\b/g); if (!years || years.length === 0) return false;
-  const latestYear = Math.max(...years.map(Number)); return latestYear <= 2020;
-}
-function calculatePromotionEligible(lastAutismSaleYear) { const year = Number(lastAutismSaleYear || 0); if (!year) return false; return year < 2023; }
-function loadThisContact(id) {
-  const donor = allDonors.find(item => Number(item.id) === Number(id));
-  if (!donor) { alert('Contact not found'); return; }
-  fillEditForm(donor);
-  openEditContactPanel();
-}
-
+async function updateCallbackDate(id, callback_date) { const { error } = await client.from('donors').update({ callback_date: callback_date || null }).eq('id', id); if (error) { console.error('Next-action date update failed:', error); alert('Failed to save date: ' + error.message); } else { updateLocalDonor(id, { callback_date: callback_date || null }); pinContact(id, 'date changed — row held in place'); } }
+async function updateSuggestedAsk(id, suggested_ask) { cacheSaleAmount(id, suggested_ask); const donor = allDonors.find(item => Number(item.id) === Number(id)) || {}; const amountValue = parseMoneyNumber(suggested_ask); const updateData = { suggested_ask: suggested_ask || null }; if (isClosedSale(donor) && amountValue > 0) addOptionalSaleAmountFields(updateData, donor, amountValue); const { error } = await client.from('donors').update(updateData).eq('id', id); if (error) { console.error('Amount update failed:', error); alert('Failed to save amount: ' + error.message); } else { updateLocalDonor(id, updateData); clearPendingSaleAmount(id); pinContact(id, 'amount changed — kept visible'); renderDonors(); } }
+async function updateEmailFollowupStage(id, stage) { const today = todayString(); const donor = allDonors.find(item => Number(item.id) === Number(id)) || {}; const updateData = { email_followup_stage: stage || null }; if (stage === 'Follow-up email sent') updateData.last_email_followup_date = today; if (stage && !isEmailFollowUp(donor)) updateData.status = 'Email Sent'; const { error } = await client.from('donors').update(updateData).eq('id', id); if (error) { console.error('Email follow-up stage update failed:', error); alert('Failed to save email stage. Run the v18 SQL setup first. ' + error.message); } else { updateLocalDonor(id, updateData); pinContact(id, 'email follow-up stage changed — kept visible'); renderDonors(); } }
+async function updatePclEntered(id, pcl_entered) { const { error } = await client.from('donors').update({ pcl_entered: pcl_entered }).eq('id', id); if (error) { console.error('PCL entered update failed:', error); alert('Failed to save entered status: ' + error.message); } else { updateLocalDonor(id, { pcl_entered: pcl_entered }); pinContact(id, 'entered checkbox changed — kept visible'); renderDonors(); } }
+function loadThisContact(id) { const donor = allDonors.find(item => Number(item.id) === Number(id)); if (!donor) { alert('Contact not found'); return; } fillEditForm(donor); openEditContactPanel(); }
 function fillEditForm(donor) {
-  document.getElementById('edit_id').value = donor.id || '';
-  document.getElementById('edit_card_id').value = donor.card_id || '';
-  document.getElementById('edit_business_name').value = donor.business_name || '';
-  document.getElementById('edit_contact_name').value = donor.contact_name || '';
-  document.getElementById('edit_sale_contact_name').value = donor.sale_contact_name || '';
-  document.getElementById('edit_mobile').value = donor.mobile || '';
-  document.getElementById('edit_office_phone').value = donor.office_phone || '';
-  document.getElementById('edit_email').value = donor.email || '';
-  document.getElementById('edit_email_followup_stage').value = donor.email_followup_stage || '';
-  document.getElementById('edit_last_email_followup_date').value = donor.last_email_followup_date || '';
-  document.getElementById('edit_email_followup_note').value = donor.email_followup_note || '';
-  document.getElementById('edit_local_school_angle').value = donor.local_school_angle || '';
-  document.getElementById('edit_history_group').value = donor.history_group || '';
-  document.getElementById('edit_contactability_status').value = donor.contactability_status || '';
-  document.getElementById('edit_research_strength').value = donor.research_strength || '';
-  document.getElementById('edit_business_category').value = donor.business_category || '';
-  document.getElementById('edit_daily_call_list').checked = donor.daily_call_list === true;
-  document.getElementById('edit_location').value = donor.location || '';
-  document.getElementById('edit_amount').value = donor.suggested_ask || getAskAmount(donor) || '';
-  document.getElementById('edit_sale_number').value = donor.sale_number || '';
-  document.getElementById('edit_sale_type').value = donor.sale_type || '';
-  document.getElementById('edit_personal_donor').checked = donor.sale_type === 'Personal Donation' || normaliseStatus(donor.status) === 'personal donation';
-  document.getElementById('edit_cold_bonus_eligible').checked = isColdBonusEligible(donor);
-  document.getElementById('edit_charity_name').value = donor.charity_name || DEFAULT_CHARITY_NAME;
-  document.getElementById('edit_campaign_code').value = donor.campaign_code || DEFAULT_CAMPAIGN_CODE;
-  document.getElementById('edit_campaign_area').value = donor.campaign_area || '';
-  document.getElementById('edit_campaign_year').value = donor.campaign_year || DEFAULT_CAMPAIGN_YEAR;
-  document.getElementById('edit_campaign_status').value = donor.campaign_status || 'Active';
-  document.getElementById('edit_last_any_sale_year').value = donor.last_any_sale_year || '';
-  document.getElementById('edit_last_autism_sale_year').value = donor.last_autism_sale_year || '';
-  document.getElementById('edit_last_called_display').value = getLastCalledDisplay(getLastCallTimeValue(donor));
-  document.getElementById('edit_pcl_entered').checked = donor.pcl_entered === true;
-  document.getElementById('edit_check_details_reason').value = donor.check_details_reason || '';
-  document.getElementById('edit_sales_history').value = donor.sales_history || '';
-  document.getElementById('edit_call_history').value = getCallHistoryText(donor);
-  document.getElementById('edit_duplicate_warning').value = getDuplicateWarningText(donor);
-  document.getElementById('edit_phone_notes').value = donor.phone_notes || '';
-  document.getElementById('edit_notes').value = donor.notes || '';
+  document.getElementById('edit_id').value = donor.id || ''; document.getElementById('edit_card_id').value = donor.card_id || ''; document.getElementById('edit_business_name').value = donor.business_name || ''; document.getElementById('edit_contact_name').value = donor.contact_name || ''; document.getElementById('edit_sale_contact_name').value = donor.sale_contact_name || ''; document.getElementById('edit_mobile').value = donor.mobile || ''; document.getElementById('edit_office_phone').value = donor.office_phone || ''; document.getElementById('edit_email').value = donor.email || ''; document.getElementById('edit_email_followup_stage').value = donor.email_followup_stage || ''; document.getElementById('edit_last_email_followup_date').value = donor.last_email_followup_date || ''; document.getElementById('edit_email_followup_note').value = donor.email_followup_note || ''; document.getElementById('edit_local_school_angle').value = donor.local_school_angle || ''; document.getElementById('edit_history_group').value = donor.history_group || ''; document.getElementById('edit_contactability_status').value = donor.contactability_status || ''; document.getElementById('edit_research_strength').value = donor.research_strength || ''; document.getElementById('edit_business_category').value = donor.business_category || ''; document.getElementById('edit_daily_call_list').checked = donor.daily_call_list === true || String(donor.daily_call_list).toLowerCase() === 'true'; document.getElementById('edit_location').value = donor.location || ''; document.getElementById('edit_amount').value = donor.suggested_ask || getAskAmount(donor) || ''; document.getElementById('edit_sale_number').value = donor.sale_number || ''; document.getElementById('edit_sale_type').value = donor.sale_type || ''; document.getElementById('edit_personal_donor').checked = donor.sale_type === 'Personal Donation' || normaliseStatus(donor.status) === 'personal donation'; document.getElementById('edit_cold_bonus_eligible').checked = isColdBonusEligible(donor); document.getElementById('edit_charity_name').value = donor.charity_name || DEFAULT_CHARITY_NAME; document.getElementById('edit_campaign_code').value = donor.campaign_code || DEFAULT_CAMPAIGN_CODE; document.getElementById('edit_campaign_area').value = donor.campaign_area || ''; document.getElementById('edit_campaign_year').value = donor.campaign_year || DEFAULT_CAMPAIGN_YEAR; document.getElementById('edit_campaign_status').value = donor.campaign_status || 'Active'; document.getElementById('edit_last_any_sale_year').value = donor.last_any_sale_year || ''; document.getElementById('edit_last_autism_sale_year').value = donor.last_autism_sale_year || ''; document.getElementById('edit_last_called_display').value = getLastCalledDisplay(getLastCallTimeValue(donor)); document.getElementById('edit_pcl_entered').checked = donor.pcl_entered === true; document.getElementById('edit_check_details_reason').value = donor.check_details_reason || ''; document.getElementById('edit_sales_history').value = donor.sales_history || ''; document.getElementById('edit_call_history').value = getCallHistoryText(donor); document.getElementById('edit_duplicate_warning').value = getDuplicateWarningText(donor); document.getElementById('edit_phone_notes').value = donor.phone_notes || ''; document.getElementById('edit_notes').value = donor.notes || '';
 }
-function clearEditForm() {
-  const ids = ['edit_id','edit_lookup','edit_card_id','edit_business_name','edit_contact_name','edit_sale_contact_name','edit_mobile','edit_office_phone','edit_email','edit_email_followup_stage','edit_last_email_followup_date','edit_email_followup_note','edit_local_school_angle','edit_history_group','edit_contactability_status','edit_research_strength','edit_business_category','edit_location','edit_amount','edit_sale_number','edit_sale_type','edit_charity_name','edit_campaign_code','edit_campaign_area','edit_campaign_year','edit_campaign_status','edit_last_any_sale_year','edit_last_autism_sale_year','edit_last_called_display','edit_check_details_reason','edit_sales_history','edit_call_history','edit_duplicate_warning','edit_phone_notes','edit_notes'];
-  ids.forEach(id => document.getElementById(id).value = '');
-  document.getElementById('edit_personal_donor').checked = false;
-  document.getElementById('edit_pcl_entered').checked = false;
-  document.getElementById('edit_daily_call_list').checked = false;
-}
-function loadContactForEdit() {
-  const lookupRaw = document.getElementById('edit_lookup').value.trim(); const lookup = lookupRaw.toLowerCase(); const lookupDigits = lookupRaw.replace(/\D/g, '');
-  if (!lookup) { alert('Enter an ID, phone number, or business name'); return; }
-  const donor = allDonors.find(item => {
-    return String(item.card_id || '').toLowerCase() === lookup || String(item.business_name || '').toLowerCase().includes(lookup) || String(item.contact_name || '').toLowerCase().includes(lookup) || String(item.sale_contact_name || '').toLowerCase().includes(lookup) ||
-      (lookupDigits && String(item.mobile || '').replace(/\D/g, '').includes(lookupDigits)) || (lookupDigits && String(item.office_phone || '').replace(/\D/g, '').includes(lookupDigits)) || String(item.email || '').toLowerCase().includes(lookup) || String(item.notes || '').toLowerCase().includes(lookup) || String(item.phone_notes || '').toLowerCase().includes(lookup);
-  });
-  if (!donor) { alert('No matching contact found'); return; }
-  fillEditForm(donor);
-}
+function clearEditForm() { ['edit_id','edit_lookup','edit_card_id','edit_business_name','edit_contact_name','edit_sale_contact_name','edit_mobile','edit_office_phone','edit_email','edit_email_followup_stage','edit_last_email_followup_date','edit_email_followup_note','edit_local_school_angle','edit_history_group','edit_contactability_status','edit_research_strength','edit_business_category','edit_location','edit_amount','edit_sale_number','edit_sale_type','edit_charity_name','edit_campaign_code','edit_campaign_area','edit_campaign_year','edit_campaign_status','edit_last_any_sale_year','edit_last_autism_sale_year','edit_last_called_display','edit_check_details_reason','edit_sales_history','edit_call_history','edit_duplicate_warning','edit_phone_notes','edit_notes'].forEach(id => document.getElementById(id).value = ''); document.getElementById('edit_personal_donor').checked = false; document.getElementById('edit_cold_bonus_eligible').checked = false; document.getElementById('edit_pcl_entered').checked = false; document.getElementById('edit_daily_call_list').checked = false; }
+function loadContactForEdit() { const lookupRaw = document.getElementById('edit_lookup').value.trim(); const lookup = lookupRaw.toLowerCase(); const lookupDigits = lookupRaw.replace(/\D/g, ''); if (!lookup) { alert('Enter an ID, phone number, or business name'); return; } const donor = allDonors.find(item => String(item.card_id || '').toLowerCase() === lookup || String(item.business_name || '').toLowerCase().includes(lookup) || String(item.contact_name || '').toLowerCase().includes(lookup) || String(item.sale_contact_name || '').toLowerCase().includes(lookup) || (lookupDigits && String(item.mobile || '').replace(/\D/g, '').includes(lookupDigits)) || (lookupDigits && String(item.office_phone || '').replace(/\D/g, '').includes(lookupDigits)) || String(item.email || '').toLowerCase().includes(lookup) || String(item.notes || '').toLowerCase().includes(lookup) || String(item.phone_notes || '').toLowerCase().includes(lookup)); if (!donor) { alert('No matching contact found'); return; } fillEditForm(donor); }
 async function saveContactChanges() {
   const id = document.getElementById('edit_id').value; if (!id) { alert('Load a contact first'); return; }
-  const salesHistory = document.getElementById('edit_sales_history').value;
-  const lastAnySaleYear = document.getElementById('edit_last_any_sale_year').value;
-  const lastAutismSaleYear = document.getElementById('edit_last_autism_sale_year').value;
+  const coldChecked = document.getElementById('edit_cold_bonus_eligible').checked;
+  const historyGroupValue = document.getElementById('edit_history_group').value || (coldChecked ? 'Cold / no sale since 2020' : '');
+  const lastAnySaleYearValue = document.getElementById('edit_last_any_sale_year').value || (coldChecked ? '2020' : '');
+  const lastAutismSaleYearValue = document.getElementById('edit_last_autism_sale_year').value || (coldChecked ? '2020' : '');
   const personalChecked = document.getElementById('edit_personal_donor').checked;
   const saleTypeValue = personalChecked ? 'Personal Donation' : document.getElementById('edit_sale_type').value;
-  const updateData = {
-    card_id: document.getElementById('edit_card_id').value,
-    business_name: document.getElementById('edit_business_name').value,
-    contact_name: document.getElementById('edit_contact_name').value,
-    sale_contact_name: document.getElementById('edit_sale_contact_name').value,
-    mobile: document.getElementById('edit_mobile').value,
-    office_phone: document.getElementById('edit_office_phone').value,
-    email: document.getElementById('edit_email').value,
-    email_followup_stage: document.getElementById('edit_email_followup_stage').value || null,
-    last_email_followup_date: document.getElementById('edit_last_email_followup_date').value || null,
-    email_followup_note: document.getElementById('edit_email_followup_note').value,
-    local_school_angle: document.getElementById('edit_local_school_angle').value,
-    history_group: document.getElementById('edit_history_group').value,
-    contactability_status: document.getElementById('edit_contactability_status').value,
-    research_strength: document.getElementById('edit_research_strength').value,
-    business_category: document.getElementById('edit_business_category').value,
-    daily_call_list: document.getElementById('edit_daily_call_list').checked,
-    location: document.getElementById('edit_location').value,
-    suggested_ask: document.getElementById('edit_amount').value || null,
-    sale_number: document.getElementById('edit_sale_number').value || null,
-    sale_type: saleTypeValue,
-    charity_name: document.getElementById('edit_charity_name').value || DEFAULT_CHARITY_NAME,
-    campaign_code: document.getElementById('edit_campaign_code').value || DEFAULT_CAMPAIGN_CODE,
-    campaign_area: document.getElementById('edit_campaign_area').value,
-    campaign_year: document.getElementById('edit_campaign_year').value || DEFAULT_CAMPAIGN_YEAR,
-    campaign_status: document.getElementById('edit_campaign_status').value || 'Active',
-    last_any_sale_year: lastAnySaleYear || null,
-    last_autism_sale_year: lastAutismSaleYear || null,
-    sales_history: salesHistory,
-    check_details_reason: document.getElementById('edit_check_details_reason').value,
-    notes: document.getElementById('edit_notes').value,
-    pcl_entered: document.getElementById('edit_pcl_entered').checked
-  };
-  if (hasOptionalDonorColumn('cold_bonus_eligible')) updateData.cold_bonus_eligible = document.getElementById('edit_cold_bonus_eligible').checked;
-  if (normaliseStatus((allDonors.find(item => Number(item.id) === Number(id)) || {}).status) === 'closed sale' || normaliseStatus((allDonors.find(item => Number(item.id) === Number(id)) || {}).status) === 'personal donation') {
-    const editAmount = parseMoneyNumber(document.getElementById('edit_amount').value);
-    addOptionalSaleAmountFields(updateData, allDonors.find(item => Number(item.id) === Number(id)) || {}, editAmount);
-  }
+  const updateData = { card_id: document.getElementById('edit_card_id').value, business_name: document.getElementById('edit_business_name').value, contact_name: document.getElementById('edit_contact_name').value, sale_contact_name: document.getElementById('edit_sale_contact_name').value, mobile: document.getElementById('edit_mobile').value, office_phone: document.getElementById('edit_office_phone').value, email: document.getElementById('edit_email').value, email_followup_stage: document.getElementById('edit_email_followup_stage').value || null, last_email_followup_date: document.getElementById('edit_last_email_followup_date').value || null, email_followup_note: document.getElementById('edit_email_followup_note').value, local_school_angle: document.getElementById('edit_local_school_angle').value, history_group: historyGroupValue, contactability_status: document.getElementById('edit_contactability_status').value, research_strength: document.getElementById('edit_research_strength').value, business_category: document.getElementById('edit_business_category').value, daily_call_list: document.getElementById('edit_daily_call_list').checked, location: document.getElementById('edit_location').value, suggested_ask: document.getElementById('edit_amount').value || null, sale_number: document.getElementById('edit_sale_number').value || null, sale_type: saleTypeValue, charity_name: document.getElementById('edit_charity_name').value || DEFAULT_CHARITY_NAME, campaign_code: document.getElementById('edit_campaign_code').value || DEFAULT_CAMPAIGN_CODE, campaign_area: document.getElementById('edit_campaign_area').value, campaign_year: document.getElementById('edit_campaign_year').value || DEFAULT_CAMPAIGN_YEAR, campaign_status: document.getElementById('edit_campaign_status').value || 'Active', last_any_sale_year: lastAnySaleYearValue || null, last_autism_sale_year: lastAutismSaleYearValue || null, sales_history: document.getElementById('edit_sales_history').value, check_details_reason: document.getElementById('edit_check_details_reason').value, notes: document.getElementById('edit_notes').value, pcl_entered: document.getElementById('edit_pcl_entered').checked };
+  if (hasOptionalDonorColumn('cold_bonus_eligible')) updateData.cold_bonus_eligible = coldChecked;
+  if (hasOptionalDonorColumn('cold_card')) updateData.cold_card = coldChecked;
+  const existingDonor = allDonors.find(item => Number(item.id) === Number(id)) || {};
+  if (isClosedSale(existingDonor)) { const editAmount = parseMoneyNumber(document.getElementById('edit_amount').value); addOptionalSaleAmountFields(updateData, existingDonor, editAmount); }
   const { error } = await client.from('donors').update(updateData).eq('id', id);
   if (error) { console.error('Save contact failed:', error); alert('Failed to save contact changes: ' + error.message); }
-  else {
-    const saved = updateLocalDonor(id, updateData);
-    pinContact(id, 'contact edit saved — kept visible');
-    if (saved) fillEditForm(saved);
-    showWarning('Contact updated and pinned at the top of the current list so it does not disappear. Click Clear pinned row when done.');
-    renderDonors();
-  }
+  else { const saved = updateLocalDonor(id, updateData); pinContact(id, 'contact edit saved — kept visible'); if (saved) fillEditForm(saved); showWarning('Contact updated and pinned at the top of the current list so it does not disappear. Click Clear pinned row when done.'); renderDonors(); }
 }
-async function deleteLoadedContact() {
-  const id = document.getElementById('edit_id').value; const cardId = document.getElementById('edit_card_id').value; const businessName = document.getElementById('edit_business_name').value;
-  if (!id || !cardId) { alert('Load a contact first before deleting. A card ID is required.'); return; }
-  const confirmed = confirm('Delete contact ' + cardId + ' — ' + businessName + '?\n\nUse this when the PCL ID does not exist, or the ID belongs to the wrong business.\n\nThis cannot be undone.'); if (!confirmed) return;
-  const doubleConfirmed = confirm('Final check: permanently delete this contact from donors?'); if (!doubleConfirmed) return;
-  const { error } = await client.from('donors').delete().eq('card_id', cardId);
-  if (error) { console.error('Delete contact failed:', error); alert('Delete failed: ' + error.message); }
-  else { alert('Contact deleted'); clearEditForm(); await loadDonors(); }
-}
+async function deleteLoadedContact() { const id = document.getElementById('edit_id').value; const cardId = document.getElementById('edit_card_id').value; const businessName = document.getElementById('edit_business_name').value; if (!id || !cardId) { alert('Load a contact first before deleting. A card ID is required.'); return; } if (!confirm('Delete contact ' + cardId + ' — ' + businessName + '?\n\nUse this when the PCL ID does not exist, or the ID belongs to the wrong business.\n\nThis cannot be undone.')) return; if (!confirm('Final check: permanently delete this contact from donors?')) return; const { error } = await client.from('donors').delete().eq('card_id', cardId); if (error) { console.error('Delete contact failed:', error); alert('Delete failed: ' + error.message); } else { alert('Contact deleted'); clearEditForm(); await loadDonors(); } }
 async function addDonor() {
   const campaignCode = document.getElementById('campaign_code').value || DEFAULT_CAMPAIGN_CODE;
   const cardId = document.getElementById('card_id').value.trim(); if (!cardId) { alert('Card / PCL ID is required. ID-only contacts are okay, but the ID must be entered.'); return; }
+  const coldChecked = document.getElementById('add_cold_bonus_eligible').checked;
   const notesValue = document.getElementById('notes').value || 'ID visible / entered. Details may need PCL lookup. If ID is wrong or belongs to another business, delete this contact.';
-  const { error } = await client.from('donors').insert([{ card_id: cardId, business_name: document.getElementById('business_name').value, contact_name: document.getElementById('contact_name').value, mobile: document.getElementById('phone').value, office_phone: document.getElementById('office_phone').value, email: document.getElementById('email').value, location: document.getElementById('location').value, status: document.getElementById('status').value || 'Not Called', notes: notesValue, charity_name: document.getElementById('charity_name').value || DEFAULT_CHARITY_NAME, campaign_code: campaignCode, campaign_area: document.getElementById('campaign_area').value, campaign_year: document.getElementById('campaign_year').value || DEFAULT_CAMPAIGN_YEAR, campaign_status: 'Active', pcl_entered: false, sales_history: '' }]);
+  const addHistoryGroup = document.getElementById('add_history_group') ? document.getElementById('add_history_group').value : '';
+  const insertData = { card_id: cardId, business_name: document.getElementById('business_name').value, contact_name: document.getElementById('contact_name').value, mobile: document.getElementById('phone').value, office_phone: document.getElementById('office_phone').value, email: document.getElementById('email').value, location: document.getElementById('location').value, status: document.getElementById('status').value || 'Not Called', notes: notesValue, charity_name: document.getElementById('charity_name').value || DEFAULT_CHARITY_NAME, campaign_code: campaignCode, campaign_area: document.getElementById('campaign_area').value, campaign_year: document.getElementById('campaign_year').value || DEFAULT_CAMPAIGN_YEAR, campaign_status: 'Active', pcl_entered: false, sales_history: '', history_group: addHistoryGroup || (coldChecked ? 'Cold / no sale since 2020' : ''), last_any_sale_year: coldChecked ? 2020 : null, last_autism_sale_year: coldChecked ? 2020 : null };
+  if (hasOptionalDonorColumn('cold_bonus_eligible')) insertData.cold_bonus_eligible = coldChecked;
+  if (hasOptionalDonorColumn('cold_card')) insertData.cold_card = coldChecked;
+  const { error } = await client.from('donors').insert([insertData]);
   if (error) { console.error('Add donor failed:', error); alert('Failed to add donor: ' + error.message); }
-  else { alert('Donor added'); await loadDonors(); ['card_id','business_name','contact_name','phone','office_phone','email','location','campaign_area','notes'].forEach(id => document.getElementById(id).value = ''); document.getElementById('status').value = 'Not Called'; }
+  else { alert('Donor added'); await loadDonors(); ['card_id','business_name','contact_name','phone','office_phone','email','location','campaign_area','notes','add_history_group'].forEach(id => document.getElementById(id).value = ''); document.getElementById('status').value = 'Not Called'; document.getElementById('add_cold_bonus_eligible').checked = false; }
 }
-function getReportDateText(value) {
-  if (!value) return '';
-  const text = String(value);
-  // YYYY-MM-DD fields such as sale_date/email_sent_date are already NZ local dates.
-  if (/^\d{4}-\d{2}-\d{2}$/.test(text.slice(0, 10)) && !text.includes('T')) return text.slice(0, 10);
-  // ISO timestamps are stored in UTC by Supabase. Convert them back to NZ/local browser date before comparing.
-  return localDateString(value);
-}
-function dateInRange(dateValue, startDate, endDate) {
-  if (!dateValue) return false;
-  const dateText = getReportDateText(dateValue);
-  return dateText >= startDate && dateText <= endDate;
-}
-function donorWorkedInRange(donor, startDate, endDate) {
-  return dateInRange(donor.last_status_change,startDate,endDate) ||
-    dateInRange(donor.last_called,startDate,endDate) ||
-    dateInRange(donor.sale_date,startDate,endDate) ||
-    dateInRange(donor.email_sent_date,startDate,endDate) ||
-    dateInRange(donor.check_details_date,startDate,endDate);
-}
+function getReportDateText(value) { if (!value) return ''; const text = String(value); if (/^\d{4}-\d{2}-\d{2}$/.test(text.slice(0, 10)) && !text.includes('T')) return text.slice(0, 10); return localDateString(value); }
+function dateInRange(dateValue, startDate, endDate) { if (!dateValue) return false; const dateText = getReportDateText(dateValue); return dateText >= startDate && dateText <= endDate; }
+function donorWorkedInRange(donor, startDate, endDate) { return dateInRange(donor.last_status_change,startDate,endDate) || dateInRange(donor.last_called,startDate,endDate) || dateInRange(donor.sale_date,startDate,endDate) || dateInRange(donor.email_sent_date,startDate,endDate) || dateInRange(donor.check_details_date,startDate,endDate); }
 function callLogInRange(log, startDate, endDate) { return dateInRange(log.called_at, startDate, endDate); }
-function getPayCycleRange() {
-  const today = new Date(todayString() + 'T00:00:00');
-  const base = new Date(PAY_CYCLE_START + 'T00:00:00');
-  const dayMs = 24*60*60*1000;
-  let diffDays = Math.floor((today - base) / dayMs);
-  let cycles = Math.floor(diffDays / 14);
-  if (diffDays < 0) cycles = 0;
-  const start = new Date(base.getTime() + cycles*14*dayMs);
-  const toDateText = (date) => date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0');
-  // End date is today, not the future end of the fortnight, so reports/bonuses show work actually done so far.
-  return { start: toDateText(start), end: todayString() };
-}
-function getReportDataByRange(data, startDate, endDate) { if (!startDate || !endDate) return Array.from(data); return data.filter(donor => donorWorkedInRange(donor,startDate,endDate)); }
-function donorHasEmailActivityInRange(donor, startDate, endDate) {
-  if (!startDate || !endDate) return isEmailFollowUp(donor);
-  if (donor.email_sent_date) return dateInRange(donor.email_sent_date,startDate,endDate);
-  if (donor.last_email_followup_date) return dateInRange(donor.last_email_followup_date,startDate,endDate);
-  return isEmailFollowUp(donor) && dateInRange(donor.last_status_change,startDate,endDate);
-}
-function donorHasSaleActivityInRange(donor, startDate, endDate) {
-  if (!isClosedSale(donor)) return false;
-  if (!startDate || !endDate) return true;
-  if (donor.sale_date) return dateInRange(donor.sale_date,startDate,endDate);
-  return dateInRange(donor.last_status_change,startDate,endDate);
-}
-function getReportCallLogs(reportDonors, startDate, endDate) {
-  const ids = new Set(reportDonors.map(d => String(d.id)));
-  const cards = new Set(reportDonors.map(d => String(d.card_id || '').trim()).filter(Boolean));
-  return callLogs.filter(log => (!startDate || !endDate || callLogInRange(log,startDate,endDate)) && (ids.has(String(log.donor_id || '')) || cards.has(String(log.card_id || '').trim())));
-}
-function getCampaignBreakdownHtml(worked, closedSales, emailsSentList, reportCallLogs) {
-  const campaignCodes = Array.from(new Set(worked.concat(closedSales).concat(emailsSentList).map(getCampaignCode).concat(reportCallLogs.map(l => String(l.campaign_code || '').toUpperCase()).filter(Boolean)))).sort();
-  if (campaignCodes.length === 0) return '<p>No campaign activity in this period.</p>';
-  let rows = '';
-  campaignCodes.forEach(code => {
-    const campaignWorked = worked.filter(donor => getCampaignCode(donor) === code);
-    const campaignSales = closedSales.filter(donor => getCampaignCode(donor) === code);
-    const campaignEmails = emailsSentList.filter(donor => getCampaignCode(donor) === code);
-    const campaignCalls = reportCallLogs.filter(log => String(log.campaign_code || '').toUpperCase() === code);
-    const uniqueCallIds = new Set(campaignCalls.map(log => String(log.donor_id || log.card_id || '')));
-    const amount = campaignSales.reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0);
-    const sample = campaignWorked[0] || campaignSales[0] || campaignEmails[0] || {};
-    rows += '<tr><td>' + escapeHtml(code) + '</td><td>' + escapeHtml(sample.charity_name || DEFAULT_CHARITY_NAME) + '</td><td>' + escapeHtml(sample.campaign_area || '') + '</td><td>' + campaignWorked.length + '</td><td>' + campaignCalls.length + '</td><td>' + uniqueCallIds.size + '</td><td>' + campaignEmails.length + '</td><td>' + campaignSales.length + '</td><td>$' + amount + '</td></tr>';
-  });
-  return '<table class="report-table"><thead><tr><th>Campaign</th><th>Charity</th><th>Area</th><th>Worked/Moved</th><th>Call attempts</th><th>Unique called</th><th>Emails</th><th>Sales</th><th>Amount</th></tr></thead><tbody>' + rows + '</tbody></table>';
-}
+function getPayCycleRange() { const today = new Date(todayString() + 'T00:00:00'); const base = new Date(PAY_CYCLE_START + 'T00:00:00'); const dayMs = 24*60*60*1000; let diffDays = Math.floor((today - base) / dayMs); let cycles = Math.floor(diffDays / 14); if (diffDays < 0) cycles = 0; const start = new Date(base.getTime() + cycles*14*dayMs); const toDateText = (date) => date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0'); return { start: toDateText(start), end: todayString() }; }
+function getReportDataByRange(data, startDate, endDate) { return (!startDate || !endDate) ? Array.from(data) : data.filter(donor => donorWorkedInRange(donor,startDate,endDate)); }
+function donorHasEmailActivityInRange(donor, startDate, endDate) { if (!startDate || !endDate) return isEmailFollowUp(donor); if (donor.email_sent_date) return dateInRange(donor.email_sent_date,startDate,endDate); if (donor.last_email_followup_date) return dateInRange(donor.last_email_followup_date,startDate,endDate); return isEmailFollowUp(donor) && dateInRange(donor.last_status_change,startDate,endDate); }
+function donorHasSaleActivityInRange(donor, startDate, endDate) { if (!isClosedSale(donor)) return false; if (!startDate || !endDate) return true; if (donor.sale_date) return dateInRange(donor.sale_date,startDate,endDate); return dateInRange(donor.last_status_change,startDate,endDate); }
+function getReportCallLogs(reportDonors, startDate, endDate) { const ids = new Set(reportDonors.map(d => String(d.id))); const cards = new Set(reportDonors.map(d => String(d.card_id || '').trim()).filter(Boolean)); return callLogs.filter(log => (!startDate || !endDate || callLogInRange(log,startDate,endDate)) && (ids.has(String(log.donor_id || '')) || cards.has(String(log.card_id || '').trim()))); }
+function getCampaignBreakdownHtml(worked, closedSales, emailsSentList, reportCallLogs) { const campaignCodes = Array.from(new Set(worked.concat(closedSales).concat(emailsSentList).map(getCampaignCode).concat(reportCallLogs.map(l => String(l.campaign_code || '').toUpperCase()).filter(Boolean)))).sort(); if (!campaignCodes.length) return '<p>No campaign activity in this period.</p>'; let rows = ''; campaignCodes.forEach(code => { const campaignWorked = worked.filter(donor => getCampaignCode(donor) === code); const campaignSales = closedSales.filter(donor => getCampaignCode(donor) === code); const campaignEmails = emailsSentList.filter(donor => getCampaignCode(donor) === code); const campaignCalls = reportCallLogs.filter(log => String(log.campaign_code || '').toUpperCase() === code); const uniqueCallIds = new Set(campaignCalls.map(log => String(log.donor_id || log.card_id || ''))); const amount = campaignSales.reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0); const coldAmount = campaignSales.filter(isColdBonusEligible).reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0); const sample = campaignWorked[0] || campaignSales[0] || campaignEmails[0] || {}; rows += '<tr><td>' + escapeHtml(code) + '</td><td>' + escapeHtml(sample.charity_name || DEFAULT_CHARITY_NAME) + '</td><td>' + escapeHtml(sample.campaign_area || '') + '</td><td>' + campaignWorked.length + '</td><td>' + campaignCalls.length + '</td><td>' + uniqueCallIds.size + '</td><td>' + campaignEmails.length + '</td><td>' + campaignSales.length + '</td><td>' + formatMoney(amount) + '</td><td>' + formatMoney(coldAmount) + '</td></tr>'; }); return '<table class="report-table"><thead><tr><th>Campaign</th><th>Charity</th><th>Area</th><th>Worked/Moved</th><th>Call attempts</th><th>Unique called</th><th>Emails</th><th>Sales</th><th>Amount</th><th>Cold amount</th></tr></thead><tbody>' + rows + '</tbody></table>'; }
 function buildReport(title, data, startDate, endDate, campaignOnly) {
-  let reportData = Array.from(data);
-  if (campaignOnly && currentCampaignFilter !== 'all') reportData = reportData.filter(donor => getCampaignCode(donor) === currentCampaignFilter);
-
-  const worked = getReportDataByRange(reportData, startDate, endDate);
-  const reportCallLogs = getReportCallLogs(reportData, startDate, endDate);
-  const uniqueCalled = new Set(reportCallLogs.map(log => String(log.donor_id || log.card_id || ''))).size;
-  const callQueue = reportData.filter(donor => isCallQueueContact(donor)).length;
-  const noAnswer = worked.filter(donor => isNoAnswer(donor)).length;
-  const callbacks = worked.filter(donor => isCallback(donor)).length;
-  const willCall = worked.filter(donor => isWillCallMe(donor)).length;
-  const checkDetails = worked.filter(donor => isCheckDetails(donor)).length;
-
-  const emailsSentList = reportData.filter(donor => donorHasEmailActivityInRange(donor, startDate, endDate));
-  const closedSales = reportData.filter(donor => donorHasSaleActivityInRange(donor, startDate, endDate));
-  const coldEligibleSales = closedSales.filter(isColdBonusEligible);
-
-  emailsSentList.sort((a,b) => String(getReportDateText(b.email_sent_date || b.last_status_change || b.last_called) || '').localeCompare(String(getReportDateText(a.email_sent_date || a.last_status_change || a.last_called) || '')));
-  closedSales.sort((a,b) => Number(a.sale_number || 999999) - Number(b.sale_number || 999999));
-  coldEligibleSales.sort((a,b) => String(b.sale_date || '').localeCompare(String(a.sale_date || '')) || String(a.business_name || '').localeCompare(String(b.business_name || '')));
-
-  const closedSalesTotal = closedSales.reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0);
-  const coldEligibleTotal = coldEligibleSales.reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0);
-  const contactsMoved = worked.length;
-
-  let closedSalesHtml = '';
-  closedSales.forEach((donor) => {
-    closedSalesHtml += '<li>ID: ' + escapeHtml(donor.card_id || '') +
-      ' — Sale #: ' + escapeHtml(donor.sale_number || '') +
-      ' — Amount: ' + formatMoney(getSaleAmount(donor) || 0) +
-      ' — Business: <strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong>' +
-      ' — Contact: ' + escapeHtml(getReportContactName(donor)) +
-      (isColdBonusEligible(donor) ? ' — <strong>Cold eligible</strong>' : '') + '</li>';
-  });
-  if (!closedSalesHtml) closedSalesHtml = '<li>No closed sale details found for this report period.</li>';
-
-  let coldSalesHtml = '';
-  coldEligibleSales.forEach((donor) => {
-    coldSalesHtml += '<li>ID: ' + escapeHtml(donor.card_id || '') +
-      ' — Amount: ' + formatMoney(getSaleAmount(donor) || 0) +
-      ' — Business: <strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong>' +
-      ' — Date: ' + escapeHtml(formatNzShortDate(donor.sale_date || donor.last_status_change || '')) +
-      ' — Group: ' + escapeHtml(donor.history_group || 'cold_bonus_eligible') + '</li>';
-  });
-  if (!coldSalesHtml) coldSalesHtml = '<li>No cold eligible sales found for this report period.</li>';
-
-  let emailsSentHtml = '';
-  emailsSentList.forEach(donor => {
-    const groupingNote = getEmailGroupingNote(donor);
-    emailsSentHtml += '<li>ID: ' + escapeHtml(donor.card_id || '') +
-      ' — Business: <strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong>' +
-      ' — Contact: ' + escapeHtml(getReportContactName(donor)) +
-      ' — Suggested ask: ' + formatMoney(getAskAmount(donor) || 0) +
-      ' — Email grouping: ' + escapeHtml(groupingNote || '') + '</li>';
-  });
-  if (!emailsSentHtml) emailsSentHtml = '<li>No email-sent details found for this report period.</li>';
-
-  let callHistoryHtml = '';
-  reportCallLogs.slice(0, 100).forEach(log => {
-    callHistoryHtml += '<li>' + escapeHtml(getLastCalledDisplay(log.called_at)) +
-      ' — ID: ' + escapeHtml(log.card_id || '') +
-      ' — ' + escapeHtml(log.business_name || '') +
-      ' — ' + escapeHtml(log.number_type || '') + ': ' + escapeHtml(log.number_called || '') +
-      ' — Status then: ' + escapeHtml(log.status_at_call || '') + '</li>';
-  });
-  if (!callHistoryHtml) callHistoryHtml = '<li>No call attempts logged for this report period.</li>';
-
-  const reportBox = document.getElementById('reportBox'); showReportOnly();
-  reportBox.innerHTML = '<h2>' + escapeHtml(title) + '</h2>' +
-    (startDate && endDate ? '<p><strong>Period:</strong> ' + escapeHtml(startDate) + ' to ' + escapeHtml(endDate) + '</p>' : '') +
-    '<div class="bonus-strip">' + buildBonusSummaryHtml(reportData, startDate || todayString(), endDate || todayString()) + '</div>' +
-    '<h3>Daily Bonus Breakdown</h3>' + buildDailyBonusBreakdownHtml(reportData, startDate, endDate) +
-    '<p class="report-line"><strong>Total contacts in scope:</strong> ' + reportData.length + '</p>' +
-    '<p class="report-line"><strong>Still in call queue / not called:</strong> ' + callQueue + '</p>' +
-    '<p class="report-line"><strong>Contacts moved / worked:</strong> ' + contactsMoved + '</p>' +
-    '<p class="report-line"><strong>Total phone call attempts:</strong> ' + reportCallLogs.length + (callLogReady ? '' : ' (call logging not active)') + '</p>' +
-    '<p class="report-line"><strong>Unique contacts called:</strong> ' + uniqueCalled + '</p>' +
-    '<p class="report-line"><strong>No answers moved:</strong> ' + noAnswer + '</p>' +
-    '<p class="report-line"><strong>Callbacks:</strong> ' + callbacks + '</p>' +
-    '<p class="report-line"><strong>Will call me:</strong> ' + willCall + '</p>' +
-    '<p class="report-line"><strong>Check details:</strong> ' + checkDetails + '</p>' +
-    '<p class="report-line"><strong>Emails sent:</strong> ' + emailsSentList.length + '</p>' +
-    '<p class="report-line"><strong>Closed sales:</strong> ' + closedSales.length + '</p>' +
-    '<p class="report-line"><strong>Total sales amount:</strong> ' + formatMoney(closedSalesTotal) + '</p>' +
-    '<p class="report-line"><strong>Cold eligible sales in this report:</strong> ' + coldEligibleSales.length + ' / ' + formatMoney(coldEligibleTotal) + '</p>' +
-    '<h3>Campaign Breakdown</h3>' + getCampaignBreakdownHtml(worked, closedSales, emailsSentList, reportCallLogs) +
-    '<h3>Closed Sales Details</h3><ul class="report-list">' + closedSalesHtml + '</ul>' +
-    '<h3>Cold Eligible Sales Details</h3><ul class="report-list">' + coldSalesHtml + '</ul>' +
-    '<h3>Email Sent Details</h3><ul class="report-list">' + emailsSentHtml + '</ul>' +
-    '<h3>Call Attempts Logged</h3><ul class="report-list">' + callHistoryHtml + '</ul>' +
-    '<div class="no-print" style="margin-top: 20px;"><button onclick="backToCallQueue()">Back to Call Queue</button><button onclick="window.print()">Print / Save as PDF</button></div>';
+  let reportData = Array.from(data); if (campaignOnly && currentCampaignFilter !== 'all') reportData = reportData.filter(donor => getCampaignCode(donor) === currentCampaignFilter);
+  const worked = getReportDataByRange(reportData, startDate, endDate); const reportCallLogs = getReportCallLogs(reportData, startDate, endDate); const uniqueCalled = new Set(reportCallLogs.map(log => String(log.donor_id || log.card_id || ''))).size; const callQueue = reportData.filter(donor => isCallQueueContact(donor)).length; const noAnswer = worked.filter(donor => isNoAnswer(donor)).length; const callbacks = worked.filter(donor => isCallback(donor)).length; const willCall = worked.filter(donor => isWillCallMe(donor)).length; const checkDetails = worked.filter(donor => isCheckDetails(donor)).length; const checkNumber = worked.filter(donor => isCheckNumber(donor)).length; const putAside = worked.filter(donor => isPutAside(donor)).length; const noCards = worked.filter(donor => isNoStatus(donor)).length; const emailsSentList = reportData.filter(donor => donorHasEmailActivityInRange(donor, startDate, endDate)); const closedSales = reportData.filter(donor => donorHasSaleActivityInRange(donor, startDate, endDate)); const coldEligibleSales = closedSales.filter(isColdBonusEligible);
+  emailsSentList.sort((a,b) => String(getReportDateText(b.email_sent_date || b.last_status_change || b.last_called) || '').localeCompare(String(getReportDateText(a.email_sent_date || a.last_status_change || a.last_called) || ''))); closedSales.sort((a,b) => Number(a.sale_number || 999999) - Number(b.sale_number || 999999)); coldEligibleSales.sort((a,b) => String(b.sale_date || '').localeCompare(String(a.sale_date || '')) || String(a.business_name || '').localeCompare(String(b.business_name || '')));
+  const closedSalesTotal = closedSales.reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0); const coldEligibleTotal = coldEligibleSales.reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0);
+  let closedSalesHtml = closedSales.map(donor => '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — Sale #: ' + escapeHtml(donor.sale_number || '') + ' — Amount: ' + formatMoney(getSaleAmount(donor) || 0) + ' — Business: <strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong> — Contact: ' + escapeHtml(getReportContactName(donor)) + (isColdBonusEligible(donor) ? ' — <strong>Cold eligible</strong>' : '') + '</li>').join(''); if (!closedSalesHtml) closedSalesHtml = '<li>No closed sale details found for this report period.</li>';
+  let coldSalesHtml = coldEligibleSales.map(donor => '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — Amount: ' + formatMoney(getSaleAmount(donor) || 0) + ' — Business: <strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong> — Date: ' + escapeHtml(formatNzShortDate(donor.sale_date || donor.last_status_change || '')) + ' — Reason: ' + escapeHtml(getColdReason(donor)) + '</li>').join(''); if (!coldSalesHtml) coldSalesHtml = '<li>No cold eligible sales found for this report period.</li>';
+  let emailsSentHtml = emailsSentList.map(donor => '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — Business: <strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong> — Contact: ' + escapeHtml(getReportContactName(donor)) + ' — Suggested ask: ' + formatMoney(getAskAmount(donor) || 0) + ' — Email grouping: ' + escapeHtml(getEmailGroupingNote(donor) || '') + '</li>').join(''); if (!emailsSentHtml) emailsSentHtml = '<li>No email-sent details found for this report period.</li>';
+  let callHistoryHtml = reportCallLogs.slice(0, 100).map(log => '<li>' + escapeHtml(getLastCalledDisplay(log.called_at)) + ' — ID: ' + escapeHtml(log.card_id || '') + ' — ' + escapeHtml(log.business_name || '') + ' — ' + escapeHtml(log.number_type || '') + ': ' + escapeHtml(log.number_called || '') + ' — Status then: ' + escapeHtml(log.status_at_call || '') + '</li>').join(''); if (!callHistoryHtml) callHistoryHtml = '<li>No call attempts logged for this report period.</li>';
+  const reportBox = document.getElementById('reportBox'); showReportOnly(); reportBox.innerHTML = '<h2>' + escapeHtml(title) + '</h2>' + (startDate && endDate ? '<p><strong>Period:</strong> ' + escapeHtml(startDate) + ' to ' + escapeHtml(endDate) + '</p>' : '') + '<div class="bonus-strip">' + buildBonusSummaryHtml(reportData, startDate || todayString(), endDate || todayString()) + '</div><p class="report-line"><strong>Total contacts in scope:</strong> ' + reportData.length + '</p><p class="report-line"><strong>Still in call queue / not called:</strong> ' + callQueue + '</p><p class="report-line"><strong>Contacts moved / worked:</strong> ' + worked.length + '</p><p class="report-line"><strong>Total phone call attempts:</strong> ' + reportCallLogs.length + (callLogReady ? '' : ' (call logging not active)') + '</p><p class="report-line"><strong>Unique contacts called:</strong> ' + uniqueCalled + '</p><p class="report-line"><strong>No answers moved:</strong> ' + noAnswer + '</p><p class="report-line"><strong>Callbacks:</strong> ' + callbacks + '</p><p class="report-line"><strong>Will call me:</strong> ' + willCall + '</p><p class="report-line"><strong>Check details:</strong> ' + checkDetails + '</p><p class="report-line"><strong>Check number / wrong number:</strong> ' + checkNumber + '</p><p class="report-line"><strong>Put aside / maybe later:</strong> ' + putAside + '</p><p class="report-line"><strong>No / not interested:</strong> ' + noCards + '</p><p class="report-line"><strong>Emails sent:</strong> ' + emailsSentList.length + '</p><p class="report-line"><strong>Closed sales:</strong> ' + closedSales.length + '</p><p class="report-line"><strong>Total sales amount:</strong> ' + formatMoney(closedSalesTotal) + '</p><p class="report-line"><strong>Cold eligible sales in this report:</strong> ' + coldEligibleSales.length + ' / ' + formatMoney(coldEligibleTotal) + '</p><h3>Campaign Breakdown</h3>' + getCampaignBreakdownHtml(worked, closedSales, emailsSentList, reportCallLogs) + '<h3>Closed Sales Details</h3><ul class="report-list">' + closedSalesHtml + '</ul><h3>Cold Eligible Sales Details</h3><ul class="report-list">' + coldSalesHtml + '</ul><h3>Email Sent Details</h3><ul class="report-list">' + emailsSentHtml + '</ul><h3>Call Attempts Logged</h3><ul class="report-list">' + callHistoryHtml + '</ul><div class="no-print" style="margin-top: 20px;"><button onclick="backToCallQueue()">Back to Call Queue</button><button onclick="window.print()">Print / Save as PDF</button></div>';
 }
-
+function togglePreviousDailyControls() { const box = document.getElementById('previousDailyControls'); if (!box) return; box.style.display = box.style.display === 'inline-block' ? 'none' : 'inline-block'; setDefaultReportDate(); }
 function setDefaultReportDate() { const input = document.getElementById('reportDate'); if (input && !input.value) input.value = todayString(); }
 function showDailyReport() { const today = todayString(); const input = document.getElementById('reportDate'); if (input) input.value = today; buildReport('Daily Fundraising Report - All Campaigns', allDonors, today, today, false); }
 function showSelectedDailyReport(campaignOnly) { const input = document.getElementById('reportDate'); const selectedDate = input && input.value ? input.value : todayString(); const label = campaignOnly && currentCampaignFilter !== 'all' ? currentCampaignFilter : 'All Campaigns'; buildReport('Daily Fundraising Report - ' + label, allDonors, selectedDate, selectedDate, campaignOnly); }
-function showYesterdayReport() { const date = new Date(todayString() + 'T00:00:00'); date.setDate(date.getDate() - 1); const text = date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0'); const input = document.getElementById('reportDate'); if (input) input.value = text; buildReport('Daily Fundraising Report - All Campaigns', allDonors, text, text, false); }
 function showPayCycleReport() { const range = getPayCycleRange(); buildReport('Pay Cycle Fundraising Report - Current Fortnight - All Campaigns', allDonors, range.start, range.end, false); }
 function showCampaignReport() { const label = currentCampaignFilter === 'all' ? 'All Campaigns' : currentCampaignFilter; buildReport('Campaign Fundraising Report - ' + label, allDonors, null, null, true); }
 
