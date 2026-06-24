@@ -98,7 +98,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.5.6 campaign targets + lifecycle</h1>
+<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.5.7 full row loader + sales reports</h1>
 <div id="errorBox"></div>
 <div id="warnBox"></div>
 
@@ -110,7 +110,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
   <label style="margin-left:8px; font-size:12px; background:#fff; border:1px solid #ccc; padding:4px; display:inline-block;">
     <input type="checkbox" id="includeFinishedCampaigns" onchange="setIncludeFinishedCampaigns(this.checked)"> Show finished campaigns in active working lists
   </label>
-  <span class="help-text">Autism tickets = $65. GKC / Brain Injured Children’s Trust tickets = $70. Cold bonus logic reads both new cold_bonus_eligible and legacy cold_card. History sections recognise exact groups: TAPS, Comparative, Recent TAPS, Recent Comparative, 21-22, Cold, Pre-2020. Put Aside, Check Number, and No/Recall lists keep weaker or rejected cards accessible instead of deleting them. Finished campaigns hide from normal active working lists only; Email Follow Up, Closed Sales To Enter, All Contacts, reports, search, and selected-campaign views stay accessible for late sales/emails/unclaimed sales.</span>
+  <span class="help-text">Autism tickets = $65. GKC / Brain Injured Children’s Trust tickets = $70. Cold bonus logic reads both new cold_bonus_eligible and legacy cold_card. History sections recognise exact groups: TAPS, Comparative, Recent TAPS, Recent Comparative, 21-22, Cold, Pre-2020. Put Aside, Check Number, and No/Recall lists keep weaker or rejected cards accessible instead of deleting them. Finished campaigns hide from normal active working lists only; Email Follow Up, Closed Sales To Enter, All Contacts, reports, search, and selected-campaign views stay accessible for late sales/emails/unclaimed sales. v18.5.7 loads donors with Supabase pagination so reports are not capped at 1000 rows.</span>
 </div>
 
 <div id="bonusStrip" class="bonus-strip"></div>
@@ -352,6 +352,7 @@ let currentSectionMode = 'all';
 let includeFinishedCampaigns = false;
 let formsOpen = false;
 let allDonors = [];
+let donorLoadMeta = { totalLoaded: 0, pages: 0, pageSize: 1000 };
 let callLogs = [];
 let callLogReady = false;
 let duplicateLookup = new Map();
@@ -479,6 +480,14 @@ function getSaleAmount(donor) {
   for (const value of candidates) { const n = parseMoneyNumber(value); if (n > 0) return n; }
   return Number(getAskAmount(donor) || 0);
 }
+function getReportSaleAmount(donor) {
+  // v18.5.7: reports/targets/bonus totals must use the locked sale amount only.
+  // Do not fall back to suggested_ask, because that makes reports disagree with Supabase sale totals.
+  if (!donor) return 0;
+  const candidates = [donor.entered_sale_amount, donor.sale_amount, donor.donation];
+  for (const value of candidates) { const n = parseMoneyNumber(value); if (n > 0) return n; }
+  return 0;
+}
 function getAskInputValue(donor) {
   const pending = getPendingSaleAmount(donor.id);
   if (pending > 0) return pending;
@@ -570,7 +579,7 @@ function getNextColdTarget(total) {
 }
 function getClosedSalesForRange(data, startDate, endDate) { return Array.from(data || []).filter(donor => donorHasSaleActivityInRange(donor, startDate, endDate)); }
 function getDashboardScopeData() { return currentCampaignFilter === 'all' ? Array.from(allDonors) : allDonors.filter(donor => getCampaignCode(donor) === currentCampaignFilter); }
-function getSalesTotalForRange(data, startDate, endDate) { return getClosedSalesForRange(data, startDate, endDate).reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0); }
+function getSalesTotalForRange(data, startDate, endDate) { return getClosedSalesForRange(data, startDate, endDate).reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0); }
 function getDateList(startDate, endDate) {
   if (!startDate || !endDate) return [];
   const dates = [];
@@ -612,7 +621,7 @@ function getCampaignClosedSales(code, data) {
   return Array.from(data || []).filter(donor => getCampaignCode(donor) === campaignCode && isClosedSale(donor));
 }
 function getCampaignTotalSales(code, data) {
-  return getCampaignClosedSales(code, data).reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0);
+  return getCampaignClosedSales(code, data).reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0);
 }
 function getCampaignLateWorkCounts(code, data) {
   const campaignCode = String(code || '').trim().toUpperCase();
@@ -675,7 +684,7 @@ function buildBonusSummaryHtml(data, startDate, endDate) {
   const cycleRange = getPayCycleRange();
   const cycleSales = getClosedSalesForRange(scoped, cycleRange.start, cycleRange.end);
   const coldSales = cycleSales.filter(isColdBonusEligible);
-  const coldTotal = coldSales.reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0);
+  const coldTotal = coldSales.reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0);
   const coldBonus = calculateColdBonus(coldTotal);
   const nextCold = getNextColdTarget(coldTotal);
   const coldRemaining = Math.max(0, nextCold - coldTotal);
@@ -727,11 +736,47 @@ function populateCampaignFilter() {
   Array.from(campaignMap.entries()).sort((a, b) => a[0].localeCompare(b[0])).forEach(([code, label]) => { const option = document.createElement('option'); option.value = code; const status = isFinishedCampaignCode(code) ? ' (finished)' : ''; const target = getCampaignTargetAmount(code) ? ' target ' + formatMoney(getCampaignTargetAmount(code)) : ''; option.textContent = label + target + status; select.appendChild(option); });
   if (Array.from(select.options).some(option => option.value === previousValue)) select.value = previousValue; else { select.value = 'all'; currentCampaignFilter = 'all'; }
 }
+async function fetchAllDonors() {
+  // v18.5.7: Supabase client queries can otherwise stop at the first 1000 rows.
+  // Fetch every donor page so reports/targets can see Supacuts, late Autism sales, and all entered rows.
+  const pageSize = 1000;
+  let from = 0;
+  let pages = 0;
+  let rows = [];
+
+  while (true) {
+    const to = from + pageSize - 1;
+    const { data, error } = await client
+      .from('donors')
+      .select('*')
+      .order('id', { ascending: true })
+      .range(from, to);
+
+    if (error) throw error;
+
+    const batch = data || [];
+    rows = rows.concat(batch);
+    pages += 1;
+
+    if (batch.length < pageSize) break;
+    from += pageSize;
+  }
+
+  donorLoadMeta = { totalLoaded: rows.length, pages: pages, pageSize: pageSize };
+  console.log('Loaded donor rows with pagination:', donorLoadMeta);
+  return rows;
+}
 async function loadDonors() {
   clearError(); clearWarning();
-  const { data, error } = await client.from('donors').select('*').order('card_id', { ascending: true });
-  if (error) { const msg = 'Could not load donors.\n\nMessage: ' + (error.message || 'No message') + '\nDetails: ' + (error.details || 'No details') + '\nHint: ' + (error.hint || 'No hint') + '\nCode: ' + (error.code || 'No code'); console.error('SUPABASE LOAD ERROR:', error); showError(msg); alert(msg); return; }
-  allDonors = data || [];
+  try {
+    allDonors = await fetchAllDonors();
+  } catch (error) {
+    const msg = 'Could not load donors.\n\nMessage: ' + (error.message || 'No message') + '\nDetails: ' + (error.details || 'No details') + '\nHint: ' + (error.hint || 'No hint') + '\nCode: ' + (error.code || 'No code');
+    console.error('SUPABASE LOAD ERROR:', error);
+    showError(msg);
+    alert(msg);
+    return;
+  }
   detectOptionalDonorColumns();
   buildDuplicateLookup();
   populateCampaignFilter();
@@ -1005,7 +1050,8 @@ function renderDonors() {
   const visibleData = filteredData.slice(0, currentRenderLimit);
   const hiddenCount = Math.max(0, filteredData.length - visibleData.length);
   const callLogNote = callLogReady ? 'Call logging active.' : 'Call logging not active — run SQL setup for total call attempts/full history.';
-  if (resultsInfo) resultsInfo.innerHTML = '<strong>Showing ' + visibleData.length + ' of ' + filteredData.length + '</strong>' + (hiddenCount > 0 ? ' <button class="load-more-button" onclick="loadMoreRows()">Load next ' + Math.min(RENDER_STEP, hiddenCount) + '</button>' : '') + ' <span class="help-text">' + escapeHtml(callLogNote) + ' Sort: ' + escapeHtml(currentSortMode) + '. Section: ' + escapeHtml(currentSectionMode) + '. Rows only move after an outcome is recorded.' + (shouldHideFinishedCampaignsInCurrentView() ? ' Finished campaigns hidden from this active all-campaign working list.' : '') + (pinnedContactId ? ' Green row pinned after edit/status change: ' + escapeHtml(pinnedContactReason) + ' <button onclick="clearPinnedContact()">Clear pinned row</button>' : '') + '</span>';
+  const donorLoadNote = 'Loaded donors: ' + (donorLoadMeta.totalLoaded || allDonors.length) + ' rows across ' + (donorLoadMeta.pages || 1) + ' Supabase page(s).';
+  if (resultsInfo) resultsInfo.innerHTML = '<strong>Showing ' + visibleData.length + ' of ' + filteredData.length + '</strong>' + (hiddenCount > 0 ? ' <button class="load-more-button" onclick="loadMoreRows()">Load next ' + Math.min(RENDER_STEP, hiddenCount) + '</button>' : '') + ' <span class="help-text">' + escapeHtml(donorLoadNote) + ' ' + escapeHtml(callLogNote) + ' Sort: ' + escapeHtml(currentSortMode) + '. Section: ' + escapeHtml(currentSectionMode) + '. Rows only move after an outcome is recorded.' + (shouldHideFinishedCampaignsInCurrentView() ? ' Finished campaigns hidden from this active all-campaign working list.' : '') + (pinnedContactId ? ' Green row pinned after edit/status change: ' + escapeHtml(pinnedContactReason) + ' <button onclick="clearPinnedContact()">Clear pinned row</button>' : '') + '</span>';
   donorTable.innerHTML = visibleData.map(donor => {
     const statusClass = donor.status ? String(donor.status).toLowerCase().replaceAll(' ', '-') : '';
     const rowClass = (currentCallingId === donor.id ? ' currently-calling' : '') + (Number(pinnedContactId) === Number(donor.id) ? ' recently-touched' : '');
@@ -1120,17 +1166,17 @@ function getReportDataByRange(data, startDate, endDate) { return (!startDate || 
 function donorHasEmailActivityInRange(donor, startDate, endDate) { if (!startDate || !endDate) return isEmailFollowUp(donor); if (donor.email_sent_date) return dateInRange(donor.email_sent_date,startDate,endDate); if (donor.last_email_followup_date) return dateInRange(donor.last_email_followup_date,startDate,endDate); return isEmailFollowUp(donor) && dateInRange(donor.last_status_change,startDate,endDate); }
 function donorHasSaleActivityInRange(donor, startDate, endDate) { if (!isClosedSale(donor)) return false; if (!startDate || !endDate) return true; if (donor.sale_date) return dateInRange(donor.sale_date,startDate,endDate); return dateInRange(donor.last_status_change,startDate,endDate); }
 function getReportCallLogs(reportDonors, startDate, endDate) { const ids = new Set(reportDonors.map(d => String(d.id))); const cards = new Set(reportDonors.map(d => String(d.card_id || '').trim()).filter(Boolean)); return callLogs.filter(log => (!startDate || !endDate || callLogInRange(log,startDate,endDate)) && (ids.has(String(log.donor_id || '')) || cards.has(String(log.card_id || '').trim()))); }
-function getCampaignBreakdownHtml(worked, closedSales, emailsSentList, reportCallLogs) { const campaignCodes = Array.from(new Set(worked.concat(closedSales).concat(emailsSentList).map(getCampaignCode).concat(reportCallLogs.map(l => String(l.campaign_code || '').toUpperCase()).filter(Boolean)))).sort(); if (!campaignCodes.length) return '<p>No campaign activity in this period.</p>'; let rows = ''; campaignCodes.forEach(code => { const campaignWorked = worked.filter(donor => getCampaignCode(donor) === code); const campaignSales = closedSales.filter(donor => getCampaignCode(donor) === code); const campaignEmails = emailsSentList.filter(donor => getCampaignCode(donor) === code); const campaignCalls = reportCallLogs.filter(log => String(log.campaign_code || '').toUpperCase() === code); const uniqueCallIds = new Set(campaignCalls.map(log => String(log.donor_id || log.card_id || ''))); const amount = campaignSales.reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0); const coldAmount = campaignSales.filter(isColdBonusEligible).reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0); const sample = campaignWorked[0] || campaignSales[0] || campaignEmails[0] || {}; rows += '<tr><td>' + escapeHtml(code) + '</td><td>' + escapeHtml(sample.charity_name || DEFAULT_CHARITY_NAME) + '</td><td>' + escapeHtml(sample.campaign_area || '') + '</td><td>' + campaignWorked.length + '</td><td>' + campaignCalls.length + '</td><td>' + uniqueCallIds.size + '</td><td>' + campaignEmails.length + '</td><td>' + campaignSales.length + '</td><td>' + formatMoney(amount) + '</td><td>' + formatMoney(coldAmount) + '</td></tr>'; }); return '<table class="report-table"><thead><tr><th>Campaign</th><th>Charity</th><th>Area</th><th>Worked/Moved</th><th>Call attempts</th><th>Unique called</th><th>Emails</th><th>Sales</th><th>Amount</th><th>Cold amount</th></tr></thead><tbody>' + rows + '</tbody></table>'; }
+function getCampaignBreakdownHtml(worked, closedSales, emailsSentList, reportCallLogs) { const campaignCodes = Array.from(new Set(worked.concat(closedSales).concat(emailsSentList).map(getCampaignCode).concat(reportCallLogs.map(l => String(l.campaign_code || '').toUpperCase()).filter(Boolean)))).sort(); if (!campaignCodes.length) return '<p>No campaign activity in this period.</p>'; let rows = ''; campaignCodes.forEach(code => { const campaignWorked = worked.filter(donor => getCampaignCode(donor) === code); const campaignSales = closedSales.filter(donor => getCampaignCode(donor) === code); const campaignEmails = emailsSentList.filter(donor => getCampaignCode(donor) === code); const campaignCalls = reportCallLogs.filter(log => String(log.campaign_code || '').toUpperCase() === code); const uniqueCallIds = new Set(campaignCalls.map(log => String(log.donor_id || log.card_id || ''))); const amount = campaignSales.reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0); const coldAmount = campaignSales.filter(isColdBonusEligible).reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0); const sample = campaignWorked[0] || campaignSales[0] || campaignEmails[0] || {}; rows += '<tr><td>' + escapeHtml(code) + '</td><td>' + escapeHtml(sample.charity_name || DEFAULT_CHARITY_NAME) + '</td><td>' + escapeHtml(sample.campaign_area || '') + '</td><td>' + campaignWorked.length + '</td><td>' + campaignCalls.length + '</td><td>' + uniqueCallIds.size + '</td><td>' + campaignEmails.length + '</td><td>' + campaignSales.length + '</td><td>' + formatMoney(amount) + '</td><td>' + formatMoney(coldAmount) + '</td></tr>'; }); return '<table class="report-table"><thead><tr><th>Campaign</th><th>Charity</th><th>Area</th><th>Worked/Moved</th><th>Call attempts</th><th>Unique called</th><th>Emails</th><th>Sales</th><th>Amount</th><th>Cold amount</th></tr></thead><tbody>' + rows + '</tbody></table>'; }
 function buildReport(title, data, startDate, endDate, campaignOnly) {
   let reportData = Array.from(data); if (campaignOnly && currentCampaignFilter !== 'all') reportData = reportData.filter(donor => getCampaignCode(donor) === currentCampaignFilter);
   const worked = getReportDataByRange(reportData, startDate, endDate); const reportCallLogs = getReportCallLogs(reportData, startDate, endDate); const uniqueCalled = new Set(reportCallLogs.map(log => String(log.donor_id || log.card_id || ''))).size; const callQueue = reportData.filter(donor => isCallQueueContact(donor)).length; const noAnswer = worked.filter(donor => isNoAnswer(donor)).length; const callbacks = worked.filter(donor => isCallback(donor)).length; const willCall = worked.filter(donor => isWillCallMe(donor)).length; const checkDetails = worked.filter(donor => isCheckDetails(donor)).length; const checkNumber = worked.filter(donor => isCheckNumber(donor)).length; const putAside = worked.filter(donor => isPutAside(donor)).length; const noCards = worked.filter(donor => isNoStatus(donor)).length; const emailsSentList = reportData.filter(donor => donorHasEmailActivityInRange(donor, startDate, endDate)); const closedSales = reportData.filter(donor => donorHasSaleActivityInRange(donor, startDate, endDate)); const coldEligibleSales = closedSales.filter(isColdBonusEligible);
   emailsSentList.sort((a,b) => String(getReportDateText(b.email_sent_date || b.last_status_change || b.last_called) || '').localeCompare(String(getReportDateText(a.email_sent_date || a.last_status_change || a.last_called) || ''))); closedSales.sort((a,b) => Number(a.sale_number || 999999) - Number(b.sale_number || 999999)); coldEligibleSales.sort((a,b) => String(b.sale_date || '').localeCompare(String(a.sale_date || '')) || String(a.business_name || '').localeCompare(String(b.business_name || '')));
-  const closedSalesTotal = closedSales.reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0); const coldEligibleTotal = coldEligibleSales.reduce((sum, donor) => sum + Number(getSaleAmount(donor) || 0), 0);
-  let closedSalesHtml = closedSales.map(donor => '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — Sale #: ' + escapeHtml(donor.sale_number || '') + ' — Amount: ' + formatMoney(getSaleAmount(donor) || 0) + ' — Business: <strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong> — Contact: ' + escapeHtml(getReportContactName(donor)) + (isColdBonusEligible(donor) ? ' — <strong>Cold eligible</strong>' : '') + '</li>').join(''); if (!closedSalesHtml) closedSalesHtml = '<li>No closed sale details found for this report period.</li>';
-  let coldSalesHtml = coldEligibleSales.map(donor => '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — Amount: ' + formatMoney(getSaleAmount(donor) || 0) + ' — Business: <strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong> — Date: ' + escapeHtml(formatNzShortDate(donor.sale_date || donor.last_status_change || '')) + ' — Reason: ' + escapeHtml(getColdReason(donor)) + '</li>').join(''); if (!coldSalesHtml) coldSalesHtml = '<li>No cold eligible sales found for this report period.</li>';
+  const closedSalesTotal = closedSales.reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0); const coldEligibleTotal = coldEligibleSales.reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0);
+  let closedSalesHtml = closedSales.map(donor => '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — Sale #: ' + escapeHtml(donor.sale_number || '') + ' — Amount: ' + formatMoney(getReportSaleAmount(donor) || 0) + ' — Business: <strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong> — Contact: ' + escapeHtml(getReportContactName(donor)) + (isColdBonusEligible(donor) ? ' — <strong>Cold eligible</strong>' : '') + '</li>').join(''); if (!closedSalesHtml) closedSalesHtml = '<li>No closed sale details found for this report period.</li>';
+  let coldSalesHtml = coldEligibleSales.map(donor => '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — Amount: ' + formatMoney(getReportSaleAmount(donor) || 0) + ' — Business: <strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong> — Date: ' + escapeHtml(formatNzShortDate(donor.sale_date || donor.last_status_change || '')) + ' — Reason: ' + escapeHtml(getColdReason(donor)) + '</li>').join(''); if (!coldSalesHtml) coldSalesHtml = '<li>No cold eligible sales found for this report period.</li>';
   let emailsSentHtml = emailsSentList.map(donor => '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — Business: <strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong> — Contact: ' + escapeHtml(getReportContactName(donor)) + ' — Suggested ask: ' + formatMoney(getAskAmount(donor) || 0) + ' — Email grouping: ' + escapeHtml(getEmailGroupingNote(donor) || '') + '</li>').join(''); if (!emailsSentHtml) emailsSentHtml = '<li>No email-sent details found for this report period.</li>';
   let callHistoryHtml = reportCallLogs.slice(0, 100).map(log => '<li>' + escapeHtml(getLastCalledDisplay(log.called_at)) + ' — ID: ' + escapeHtml(log.card_id || '') + ' — ' + escapeHtml(log.business_name || '') + ' — ' + escapeHtml(log.number_type || '') + ': ' + escapeHtml(log.number_called || '') + ' — Status then: ' + escapeHtml(log.status_at_call || '') + '</li>').join(''); if (!callHistoryHtml) callHistoryHtml = '<li>No call attempts logged for this report period.</li>';
-  const reportBox = document.getElementById('reportBox'); showReportOnly(); reportBox.innerHTML = '<h2>' + escapeHtml(title) + '</h2>' + (startDate && endDate ? '<p><strong>Period:</strong> ' + escapeHtml(startDate) + ' to ' + escapeHtml(endDate) + '</p>' : '') + '<div class="bonus-strip">' + buildBonusSummaryHtml(reportData, startDate || todayString(), endDate || todayString()) + '</div><p class="report-line"><strong>Total contacts in scope:</strong> ' + reportData.length + '</p><p class="report-line"><strong>Still in call queue / not called:</strong> ' + callQueue + '</p><p class="report-line"><strong>Contacts moved / worked:</strong> ' + worked.length + '</p><p class="report-line"><strong>Total phone call attempts:</strong> ' + reportCallLogs.length + (callLogReady ? '' : ' (call logging not active)') + '</p><p class="report-line"><strong>Unique contacts called:</strong> ' + uniqueCalled + '</p><p class="report-line"><strong>No answers moved:</strong> ' + noAnswer + '</p><p class="report-line"><strong>Callbacks:</strong> ' + callbacks + '</p><p class="report-line"><strong>Will call me:</strong> ' + willCall + '</p><p class="report-line"><strong>Check details:</strong> ' + checkDetails + '</p><p class="report-line"><strong>Check number / wrong number:</strong> ' + checkNumber + '</p><p class="report-line"><strong>Put aside / maybe later:</strong> ' + putAside + '</p><p class="report-line"><strong>No / not interested:</strong> ' + noCards + '</p><p class="report-line"><strong>Emails sent:</strong> ' + emailsSentList.length + '</p><p class="report-line"><strong>Closed sales:</strong> ' + closedSales.length + '</p><p class="report-line"><strong>Total sales amount:</strong> ' + formatMoney(closedSalesTotal) + '</p><p class="report-line"><strong>Cold eligible sales in this report:</strong> ' + coldEligibleSales.length + ' / ' + formatMoney(coldEligibleTotal) + '</p><h3>Campaign Breakdown</h3>' + getCampaignBreakdownHtml(worked, closedSales, emailsSentList, reportCallLogs) + '<h3>Closed Sales Details</h3><ul class="report-list">' + closedSalesHtml + '</ul><h3>Cold Eligible Sales Details</h3><ul class="report-list">' + coldSalesHtml + '</ul><h3>Email Sent Details</h3><ul class="report-list">' + emailsSentHtml + '</ul><h3>Call Attempts Logged</h3><ul class="report-list">' + callHistoryHtml + '</ul><div class="no-print" style="margin-top: 20px;"><button onclick="backToCallQueue()">Back to Call Queue</button><button onclick="window.print()">Print / Save as PDF</button></div>';
+  const reportBox = document.getElementById('reportBox'); showReportOnly(); reportBox.innerHTML = '<h2>' + escapeHtml(title) + '</h2>' + (startDate && endDate ? '<p><strong>Period:</strong> ' + escapeHtml(startDate) + ' to ' + escapeHtml(endDate) + '</p>' : '') + '<div class="bonus-strip">' + buildBonusSummaryHtml(reportData, startDate || todayString(), endDate || todayString()) + '</div><p class="report-line"><strong>Total contacts in scope:</strong> ' + reportData.length + '</p><p class="report-line"><strong>Total donors loaded from Supabase:</strong> ' + allDonors.length + ' across ' + (donorLoadMeta.pages || 1) + ' page(s)</p><p class="report-line"><strong>Still in call queue / not called:</strong> ' + callQueue + '</p><p class="report-line"><strong>Contacts moved / worked:</strong> ' + worked.length + '</p><p class="report-line"><strong>Total phone call attempts:</strong> ' + reportCallLogs.length + (callLogReady ? '' : ' (call logging not active)') + '</p><p class="report-line"><strong>Unique contacts called:</strong> ' + uniqueCalled + '</p><p class="report-line"><strong>No answers moved:</strong> ' + noAnswer + '</p><p class="report-line"><strong>Callbacks:</strong> ' + callbacks + '</p><p class="report-line"><strong>Will call me:</strong> ' + willCall + '</p><p class="report-line"><strong>Check details:</strong> ' + checkDetails + '</p><p class="report-line"><strong>Check number / wrong number:</strong> ' + checkNumber + '</p><p class="report-line"><strong>Put aside / maybe later:</strong> ' + putAside + '</p><p class="report-line"><strong>No / not interested:</strong> ' + noCards + '</p><p class="report-line"><strong>Emails sent:</strong> ' + emailsSentList.length + '</p><p class="report-line"><strong>Closed sales:</strong> ' + closedSales.length + '</p><p class="report-line"><strong>Total sales amount:</strong> ' + formatMoney(closedSalesTotal) + '</p><p class="report-line"><strong>Cold eligible sales in this report:</strong> ' + coldEligibleSales.length + ' / ' + formatMoney(coldEligibleTotal) + '</p><h3>Campaign Breakdown</h3>' + getCampaignBreakdownHtml(worked, closedSales, emailsSentList, reportCallLogs) + '<h3>Closed Sales Details</h3><ul class="report-list">' + closedSalesHtml + '</ul><h3>Cold Eligible Sales Details</h3><ul class="report-list">' + coldSalesHtml + '</ul><h3>Email Sent Details</h3><ul class="report-list">' + emailsSentHtml + '</ul><h3>Call Attempts Logged</h3><ul class="report-list">' + callHistoryHtml + '</ul><div class="no-print" style="margin-top: 20px;"><button onclick="backToCallQueue()">Back to Call Queue</button><button onclick="window.print()">Print / Save as PDF</button></div>';
 }
 function togglePreviousDailyControls() { const box = document.getElementById('previousDailyControls'); if (!box) return; box.style.display = box.style.display === 'inline-block' ? 'none' : 'inline-block'; setDefaultReportDate(); }
 function setDefaultReportDate() { const input = document.getElementById('reportDate'); if (input && !input.value) input.value = todayString(); }
