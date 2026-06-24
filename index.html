@@ -726,6 +726,46 @@ function donorMatchesSearch(donor, term) {
   const searchableDigits = [donor.card_id, donor.mobile, donor.office_phone, donor.sale_number, donor.suggested_ask, getAskAmount(donor)].join(' ').replace(/\D/g, '');
   return searchableText.includes(cleanTerm) || (digitsOnly && searchableDigits.includes(digitsOnly));
 }
+
+function getCampaignLifecycleConfig(code) {
+  const campaignCode = String(code || '').trim().toUpperCase() || DEFAULT_CAMPAIGN_CODE;
+  const base = CAMPAIGN_TARGETS[campaignCode] || {};
+  return {
+    code: campaignCode,
+    label: base.label || campaignCode,
+    target: Number(base.target || 0),
+    charity: base.charity || '',
+    callingEndDate: base.callingEndDate || '',
+    eventDate: base.eventDate || ''
+  };
+}
+function getCampaignTargetAmount(code) {
+  return Number(getCampaignLifecycleConfig(code).target || 0);
+}
+function setIncludeFinishedCampaigns(checked) {
+  includeFinishedCampaigns = !!checked;
+  resetRenderLimit();
+  showDashboard();
+  renderDonors();
+}
+function isFinishedCampaignCode(code) {
+  const config = getCampaignLifecycleConfig(code);
+  if (!config.eventDate) return false;
+  return todayString() > String(config.eventDate).slice(0, 10);
+}
+function shouldHideFinishedCampaignsInCurrentView() {
+  if (includeFinishedCampaigns) return false;
+  if (currentCampaignFilter !== 'all') return false;
+  const exempt = ['all', 'search', 'email', 'closedSales'];
+  if (exempt.includes(currentFilter)) return false;
+  return true;
+}
+function applyFinishedCampaignVisibility(data) {
+  const rows = Array.from(data || []);
+  if (!shouldHideFinishedCampaignsInCurrentView()) return rows;
+  return rows.filter(donor => !isFinishedCampaignCode(getCampaignCode(donor)));
+}
+
 function populateCampaignFilter() {
   const select = document.getElementById('campaignFilter');
   const previousValue = currentCampaignFilter;
