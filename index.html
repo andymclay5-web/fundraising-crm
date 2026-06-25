@@ -101,6 +101,87 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 .target-table th, .target-table td { border:1px solid #ddd; padding:3px; text-align:left; }
 .target-table th { background:#e9eef5; color:#222; }
 .target-progress { font-size:10px; color:#555; margin-top:3px; }
+
+/* v18.6.0 true compact edit + campaign settings */
+#editContactBox.compact-edit {
+  grid-column: 1 / -1;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 6px 10px;
+  align-items: start;
+}
+#editContactBox.compact-edit .form-panel-header,
+#editContactBox.compact-edit .edit-wide,
+#editContactBox.compact-edit .edit-actions,
+#editContactBox.compact-edit .edit-details {
+  grid-column: 1 / -1;
+}
+#editContactBox.compact-edit .edit-details {
+  border: 1px solid #ccd8e6;
+  background: #fbfdff;
+  padding: 0;
+  margin: 2px 0;
+}
+#editContactBox.compact-edit .edit-details summary {
+  cursor: pointer;
+  padding: 5px 7px;
+  background: #e9eef5;
+  color: #1f4e79;
+  font-weight: bold;
+  font-size: 11px;
+}
+#editContactBox.compact-edit .edit-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 6px 10px;
+  padding: 7px;
+}
+#editContactBox.compact-edit .edit-details-grid .edit-wide {
+  grid-column: 1 / -1;
+}
+#editContactBox.compact-edit .edit-details textarea {
+  min-height: 44px;
+  height: 44px;
+}
+#editContactBox.compact-edit .edit-details .edit-taller {
+  min-height: 74px;
+  height: 74px;
+}
+.campaign-settings-panel {
+  display: none;
+  margin: 8px 0 10px 0;
+  border: 2px solid #1f4e79;
+  background: #fff;
+}
+.campaign-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 7px 10px;
+}
+.campaign-settings-grid .wide {
+  grid-column: 1 / -1;
+}
+.campaign-settings-grid input,
+.campaign-settings-grid select,
+.campaign-settings-grid textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+.earnings-card {
+  border-color: #8bc18b;
+  background: #f3fff3;
+}
+.earnings-card .bonus-main {
+  color: #145c2b;
+}
+@media (max-width: 850px) {
+  #editContactBox.compact-edit,
+  #editContactBox.compact-edit .edit-details-grid,
+  .campaign-settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media print {
   body { background: white; padding: 0; }
   h1, #topButtons, #searchArea, #campaignArea, #formArea, #crmTable, #errorBox, #warnBox, #resultsInfo, #listControlArea { display: none !important; }
@@ -110,7 +191,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.5.9 compact edit + commission</h1>
+<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.6.0 compact edit + campaign settings + earnings</h1>
 <div id="errorBox"></div>
 <div id="warnBox"></div>
 
@@ -122,10 +203,40 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
   <label style="margin-left:8px; font-size:12px; background:#fff; border:1px solid #ccc; padding:4px; display:inline-block;">
     <input type="checkbox" id="includeFinishedCampaigns" onchange="setIncludeFinishedCampaigns(this.checked)"> Show finished campaigns in active working lists
   </label>
+  <button class="panel-button" onclick="openCampaignSettingsPanel()">Campaign Settings / Targets / Promos</button>
   <span class="help-text">Autism tickets = $65. GKC / Brain Injured Children’s Trust tickets = $70. Cold bonus logic reads both new cold_bonus_eligible and legacy cold_card. History sections recognise exact groups: TAPS, Comparative, Recent TAPS, Recent Comparative, 21-22, Cold, Pre-2020. Put Aside, Check Number, and No/Recall lists keep weaker or rejected cards accessible instead of deleting them. Finished campaigns hide from normal active working lists only; Email Follow Up, Closed Sales To Enter, All Contacts, reports, search, and selected-campaign views stay accessible for late sales/emails/unclaimed sales. v18.5.7 loads donors with Supabase pagination so reports are not capped at 1000 rows.</span>
 </div>
 
 <div id="bonusStrip" class="bonus-strip"></div>
+
+<div id="campaignSettingsBox" class="form-box campaign-settings-panel">
+  <div class="form-panel-header">
+    <h2>Campaign Settings / Targets / Promos</h2>
+    <button class="mini-button" onclick="closeCampaignSettingsPanel()">Hide</button>
+  </div>
+  <p class="help-text">These settings are saved in this browser for the dashboard. They control the dashboard target/commission display, not the Supabase contact rows.</p>
+  <div class="campaign-settings-grid">
+    <div><label>Campaign code<br><select id="settings_campaign_code" onchange="setCampaignSettingsCode(this.value)"></select></label></div>
+    <div><label>Campaign label<br><input id="settings_campaign_label" placeholder="e.g. GKC Christchurch"></label></div>
+    <div><label>Charity<br><input id="settings_charity" placeholder="Charity / organisation"></label></div>
+    <div><label>Target amount<br><input id="settings_target" type="number" placeholder="700"></label></div>
+    <div><label>Ticket amount<br><input id="settings_ticket_amount" type="number" placeholder="65 or 70"></label></div>
+    <div><label>Campaign status<br><select id="settings_campaign_status"><option>Active</option><option>Paused</option><option>Finished</option><option>Closed</option></select></label></div>
+    <div><label>Final call date<br><input id="settings_calling_end_date" type="date"></label></div>
+    <div><label>Event date<br><input id="settings_event_date" type="date"></label></div>
+    <div><label>Commission / promo rate<br><select id="settings_commission_rate"><option value="">Default 20% / explicit 30%</option><option value="0.20">20%</option><option value="0.30">30%</option></select></label></div>
+    <div><label>Promo name<br><input id="settings_promo_name" placeholder="e.g. GKC 2026 extra 10%"></label></div>
+    <div><label>Promo start<br><input id="settings_promo_start" type="date"></label></div>
+    <div><label>Promo end<br><input id="settings_promo_end" type="date"></label></div>
+    <div class="wide"><label>Promo / target notes<br><textarea id="settings_promo_notes" placeholder="Eligibility rules, paid-by dates, special target notes"></textarea></label></div>
+  </div>
+  <div style="margin-top:8px;">
+    <button class="success-button" onclick="saveCampaignSettings()">Save Campaign Settings</button>
+    <button onclick="resetCampaignSettingsForSelected()">Reset Selected Campaign Settings</button>
+    <button onclick="closeCampaignSettingsPanel()">Close</button>
+  </div>
+</div>
+
 
 <div id="topButtons" class="top-bar">
   <button onclick="setFilter('callQueue')">Call Queue / Not Called</button>
@@ -252,33 +363,36 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
     <div class="form-row"><input id="edit_mobile" placeholder="Mobile"></div>
     <div class="form-row"><input id="edit_office_phone" placeholder="Main Number"></div>
     <div class="form-row"><input id="edit_email" placeholder="Email"></div>
-    <div class="compact-section-label">Email follow-up / research</div>
-    <div class="form-row">
-      <select id="edit_email_followup_stage">
-        <option value="">Email follow-up stage</option>
-        <option>Email sent - waiting reply</option>
-        <option>Contact asked for email</option>
-        <option>Reception told me to email</option>
-        <option>Called after email - not checked yet</option>
-        <option>Will email me back</option>
-        <option>Meeting / decision pending</option>
-        <option>Follow-up email sent</option>
-        <option>Call again later</option>
-        <option>Reception message left</option>
-        <option>No response after email + calls</option>
-      </select>
-    </div>
-    <div class="form-row"><input id="edit_last_email_followup_date" type="date" placeholder="Last email follow-up date"></div>
-    <div class="form-row edit-wide"><textarea id="edit_email_followup_note" placeholder="Email follow-up note / latest situation"></textarea></div>
-    <div class="form-row"><input id="edit_local_school_angle" placeholder="Local school / community pitch line"></div>
-    <div class="form-row"><input id="edit_history_group" placeholder="History group e.g. Cold / no sale since 2020, TAPS, Comparative"></div>
-    <div class="form-row"><input id="edit_contactability_status" placeholder="Contactability e.g. contact found, no phone, public email"></div>
-    <div class="form-row"><input id="edit_research_strength" placeholder="Research strength e.g. strong public signal"></div>
-    <div class="form-row"><input id="edit_business_category" placeholder="Business category"></div>
-    <div class="form-row"><label><input type="checkbox" id="edit_daily_call_list"> Add to Daily Focus List</label></div>
-    <div class="compact-section-label">Campaign / sale fields</div>
+    <details class="edit-details">
+      <summary>Email follow-up / research</summary>
+      <div class="edit-details-grid">
+        <div class="form-row">
+          <select id="edit_email_followup_stage">
+            <option value="">Email follow-up stage</option>
+            <option>Email sent - waiting reply</option>
+            <option>Contact asked for email</option>
+            <option>Reception told me to email</option>
+            <option>Called after email - not checked yet</option>
+            <option>Will email me back</option>
+            <option>Meeting / decision pending</option>
+            <option>Follow-up email sent</option>
+            <option>Call again later</option>
+            <option>Reception message left</option>
+            <option>No response after email + calls</option>
+          </select>
+        </div>
+        <div class="form-row"><input id="edit_last_email_followup_date" type="date" placeholder="Last email follow-up date"></div>
+        <div class="form-row edit-wide"><textarea id="edit_email_followup_note" placeholder="Email follow-up note / latest situation"></textarea></div>
+        <div class="form-row"><input id="edit_local_school_angle" placeholder="Local school / community pitch line"></div>
+        <div class="form-row"><input id="edit_contactability_status" placeholder="Contactability e.g. contact found, no phone, public email"></div>
+        <div class="form-row"><input id="edit_research_strength" placeholder="Research strength e.g. strong public signal"></div>
+        <div class="form-row"><input id="edit_business_category" placeholder="Business category"></div>
+        <div class="form-row"><label><input type="checkbox" id="edit_daily_call_list"> Add to Daily Focus List</label></div>
+      </div>
+    </details>
+    <div class="compact-section-label">Sale / campaign essentials</div>
     <div class="form-row"><input id="edit_location" placeholder="Location"></div>
-    <div class="form-row"><input id="edit_amount" placeholder="Suggested Smart Ask" type="number"></div>
+    <div class="form-row"><input id="edit_amount" placeholder="Suggested Smart Ask / Sale Amount" type="number"></div>
     <div class="form-row"><input id="edit_sale_number" placeholder="Sale Number" type="number"></div>
     <div class="form-row">
       <select id="edit_sale_type">
@@ -291,20 +405,30 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
     <div class="form-row"><label><input type="checkbox" id="edit_cold_bonus_eligible"> Cold card / cold bonus eligible / no sale since 2020</label></div>
     <div class="form-row"><input id="edit_charity_name" placeholder="Charity"></div>
     <div class="form-row"><input id="edit_campaign_code" placeholder="Campaign Code"></div>
-    <div class="form-row"><input id="edit_campaign_area" placeholder="Campaign Area / Region"></div>
-    <div class="form-row"><input id="edit_campaign_year" placeholder="Campaign Year" type="number"></div>
-    <div class="form-row"><input id="edit_campaign_status" placeholder="Campaign Status: Active / Paused / Closed"></div>
-    <div class="form-row"><input id="edit_last_any_sale_year" placeholder="Last Any Sale Year" type="number"></div>
-    <div class="form-row"><input id="edit_last_autism_sale_year" placeholder="Last Autism Sale Year" type="number"></div>
     <div class="form-row"><input id="edit_last_called_display" placeholder="Last Called" disabled></div>
     <div class="form-row"><label><input type="checkbox" id="edit_pcl_entered"> Sale Entered / PCL Entered</label></div>
-    <div class="compact-section-label">Long notes / audit fields</div>
-    <div class="form-row edit-wide"><textarea id="edit_check_details_reason" placeholder="Check Details reason / what needs fixing"></textarea></div>
-    <div class="form-row edit-wide"><textarea id="edit_sales_history" placeholder="Sales History"></textarea></div>
-    <div class="form-row edit-wide"><textarea id="edit_call_history" class="edit-readonly-box" placeholder="Call history" readonly></textarea></div>
-    <div class="form-row edit-wide"><textarea id="edit_duplicate_warning" class="edit-readonly-box" placeholder="Duplicate warning" readonly></textarea></div>
-    <div class="form-row edit-wide"><textarea id="edit_phone_notes" class="edit-readonly-box" placeholder="Phone recovery notes / source photo / extra numbers" readonly></textarea></div>
-    <div class="form-row edit-wide"><textarea id="edit_notes" placeholder="Notes"></textarea></div>
+    <details class="edit-details">
+      <summary>Campaign / history extras</summary>
+      <div class="edit-details-grid">
+        <div class="form-row"><input id="edit_campaign_area" placeholder="Campaign Area / Region"></div>
+        <div class="form-row"><input id="edit_campaign_year" placeholder="Campaign Year" type="number"></div>
+        <div class="form-row"><input id="edit_campaign_status" placeholder="Campaign Status: Active / Paused / Closed"></div>
+        <div class="form-row"><input id="edit_history_group" placeholder="History group e.g. Cold / no sale since 2020, TAPS, Comparative"></div>
+        <div class="form-row"><input id="edit_last_any_sale_year" placeholder="Last Any Sale Year" type="number"></div>
+        <div class="form-row"><input id="edit_last_autism_sale_year" placeholder="Last Autism Sale Year" type="number"></div>
+      </div>
+    </details>
+    <details class="edit-details">
+      <summary>Long notes / audit fields</summary>
+      <div class="edit-details-grid">
+        <div class="form-row edit-wide"><textarea id="edit_check_details_reason" class="edit-taller" placeholder="Check Details reason / what needs fixing"></textarea></div>
+        <div class="form-row edit-wide"><textarea id="edit_sales_history" class="edit-taller" placeholder="Sales History"></textarea></div>
+        <div class="form-row edit-wide"><textarea id="edit_call_history" class="edit-readonly-box edit-taller" placeholder="Call history" readonly></textarea></div>
+        <div class="form-row edit-wide"><textarea id="edit_duplicate_warning" class="edit-readonly-box" placeholder="Duplicate warning" readonly></textarea></div>
+        <div class="form-row edit-wide"><textarea id="edit_phone_notes" class="edit-readonly-box edit-taller" placeholder="Phone recovery notes / source photo / extra numbers" readonly></textarea></div>
+        <div class="form-row edit-wide"><textarea id="edit_notes" class="edit-taller" placeholder="Notes"></textarea></div>
+      </div>
+    </details>
     <div class="edit-actions">
       <button class="success-button" onclick="saveContactChanges()">Save Contact Changes</button>
       <button onclick="clearEditForm()">Clear Edit Form</button>
@@ -358,10 +482,11 @@ const COLD_BONUS_START_BONUS = 20;
 const COLD_BONUS_STEP = 400;
 const COLD_BONUS_STEP_BONUS = 10;
 const CAMPAIGN_TARGETS = {
-  '1A2601': { label: 'Northland Autism', target: 40000, charity: 'Autism NZ', callingEndDate: '2026-06-26', eventDate: '2026-06-27' },
-  '1A2621': { label: 'North Shore Autism', target: 700, charity: 'Autism NZ', callingEndDate: '2026-06-26', eventDate: '2026-06-28' },
-  'G2614': { label: 'GKC Christchurch', target: 700, charity: 'Great Kiwi Circus / Brain Injured Children’s Trust', callingEndDate: '', eventDate: '' }
+  '1A2601': { label: 'Northland Autism', target: 40000, charity: 'Autism NZ', callingEndDate: '2026-06-26', eventDate: '2026-06-27', ticketAmount: 65 },
+  '1A2621': { label: 'North Shore Autism', target: 700, charity: 'Autism NZ', callingEndDate: '2026-06-26', eventDate: '2026-06-28', ticketAmount: 65 },
+  'G2614': { label: 'GKC Christchurch', target: 700, charity: 'Great Kiwi Circus / Brain Injured Children’s Trust', callingEndDate: '', eventDate: '', ticketAmount: 70 }
 };
+const CAMPAIGN_SETTINGS_STORAGE_KEY = 'fundraising_crm_campaign_settings_v18_6';
 
 let currentFilter = 'callQueue';
 let currentCampaignFilter = 'all';
@@ -473,7 +598,7 @@ function isGkcCampaign(donor) {
   return code === 'G2614' || charity.includes('great kiwi circus') || charity.includes('brain injured') || notes.includes('great kiwi circus') || notes.includes('brain injured children');
 }
 function usesTicketPitch(donor) { return isAutismCampaign(donor) || isGkcCampaign(donor); }
-function getTicketAmount(donor) { if (isGkcCampaign(donor)) return GKC_TICKET_AMOUNT; if (isAutismCampaign(donor)) return AUTISM_TICKET_AMOUNT; return 0; }
+function getTicketAmount(donor) { const configured = Number(getCampaignLifecycleConfig(getCampaignCode(donor)).ticketAmount || 0); if (configured > 0) return configured; if (isGkcCampaign(donor)) return GKC_TICKET_AMOUNT; if (isAutismCampaign(donor)) return AUTISM_TICKET_AMOUNT; return 0; }
 function formatMoney(value) { const n = Number(value || 0); return '$' + Math.round(n).toLocaleString('en-NZ'); }
 function parseMoneyNumber(value) {
   if (value === null || value === undefined || value === '') return 0;
@@ -510,6 +635,8 @@ function isThirtyPercentCommissionSale(donor) {
   if (!donor) return false;
   const explicitRate = parseMoneyNumber(donor.commission_rate);
   if (explicitRate >= 0.3 || explicitRate >= 30) return true;
+  const configRate = parseMoneyNumber(getCampaignLifecycleConfig(getCampaignCode(donor)).commissionRate);
+  if (configRate >= 0.3 || configRate >= 30) return true;
   if (isTrueFlag(donor.promotion_eligible)) return true;
   if (isTrueFlag(donor.cold_bonus_eligible)) return true;
   if (isTrueFlag(donor.cold_card)) return true;
@@ -551,9 +678,44 @@ function buildCommissionCard(title, summary) {
   return '<div class="bonus-card"><strong>' + escapeHtml(title) + '</strong><span class="bonus-main">' + formatMoney(summary.totalCommission) + '</span>' +
     '<div class="commission-split">20%: ' + formatMoney(summary.standardCommission) + ' from ' + formatMoney(summary.standardSales) + '<br>30%: ' + formatMoney(summary.promoCommission) + ' from ' + formatMoney(summary.promoSales) + '</div>' + pendingText + '</div>';
 }
-function buildCommissionReportHtml(title, summary) {
+function buildEarningsCard(title, commissionSummary, dailyBonus, coldBonus, note) {
+  const commission = Number((commissionSummary || {}).totalCommission || 0);
+  const daily = Number(dailyBonus || 0);
+  const cold = Number(coldBonus || 0);
+  const total = commission + daily + cold;
+  return '<div class="bonus-card earnings-card"><strong>' + escapeHtml(title) + '</strong><span class="bonus-main">' + formatMoney(total) + '</span>' +
+    '<div class="commission-split">Commission: ' + formatMoney(commission) + '<br>Daily bonus: ' + formatMoney(daily) + '<br>Cold/pay-cycle bonus: ' + formatMoney(cold) + '</div>' +
+    (note ? '<div class="bonus-small">' + escapeHtml(note) + '</div>' : '') + '</div>';
+}
+function getReportBonusSummary(data, startDate, endDate, closedSalesOverride) {
+  const scoped = Array.from(data || []);
+  const closedSales = Array.from(closedSalesOverride || getClosedSalesForRange(scoped, startDate || todayString(), endDate || todayString()));
+  const coldEligibleSales = closedSales.filter(isColdBonusEligible);
+  const coldEligibleTotal = coldEligibleSales.reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0);
+  const coldBonus = calculateColdBonus(coldEligibleTotal);
+  const dailyRows = startDate && endDate ? getDailyBonusRows(scoped, startDate, endDate) : [];
+  const dailyBonusTotal = dailyRows.reduce((sum, row) => sum + Number(row.bonus || 0), 0);
+  return {
+    dailyRows: dailyRows,
+    dailyBonusTotal: dailyBonusTotal,
+    coldEligibleTotal: coldEligibleTotal,
+    coldBonus: coldBonus,
+    bonusSubtotal: dailyBonusTotal + coldBonus
+  };
+}
+function buildCommissionReportHtml(title, summary, bonusSummary) {
+  const bonuses = bonusSummary || { dailyBonusTotal: 0, coldBonus: 0, bonusSubtotal: 0, coldEligibleTotal: 0, dailyRows: [] };
+  const commissionTotal = Number(summary.totalCommission || 0);
+  const totalEarnings = commissionTotal + Number(bonuses.bonusSubtotal || 0);
+  const dailyNote = bonuses.dailyRows && bonuses.dailyRows.length ? 'Daily bonuses are added day-by-day for the report period.' : 'No daily bonus calculated because this report has no date range.';
   return '<div class="commission-report-box"><h3>' + escapeHtml(title) + '</h3>' +
-    '<p class="report-line"><strong>Estimated commission:</strong> ' + formatMoney(summary.totalCommission) + ' — 20% standard ' + formatMoney(summary.standardCommission) + ' from ' + formatMoney(summary.standardSales) + ' / 30% eligible ' + formatMoney(summary.promoCommission) + ' from ' + formatMoney(summary.promoSales) + '</p>' +
+    '<p class="report-line"><strong>20% standard commission:</strong> ' + formatMoney(summary.standardCommission) + ' from ' + formatMoney(summary.standardSales) + '</p>' +
+    '<p class="report-line"><strong>30% eligible commission:</strong> ' + formatMoney(summary.promoCommission) + ' from ' + formatMoney(summary.promoSales) + '</p>' +
+    '<p class="report-line"><strong>Commission subtotal:</strong> ' + formatMoney(commissionTotal) + '</p>' +
+    '<p class="report-line"><strong>Daily bonus total:</strong> ' + formatMoney(bonuses.dailyBonusTotal || 0) + ' — ' + escapeHtml(dailyNote) + '</p>' +
+    '<p class="report-line"><strong>Cold/pay-cycle bonus:</strong> ' + formatMoney(bonuses.coldBonus || 0) + ' from ' + formatMoney(bonuses.coldEligibleTotal || 0) + ' cold eligible sales in this report.</p>' +
+    '<p class="report-line"><strong>Bonus subtotal:</strong> ' + formatMoney(bonuses.bonusSubtotal || 0) + '</p>' +
+    '<p class="report-line"><strong>Estimated total earnings:</strong> ' + formatMoney(totalEarnings) + ' = commission ' + formatMoney(commissionTotal) + ' + bonuses ' + formatMoney(bonuses.bonusSubtotal || 0) + '</p>' +
     (summary.pendingThirtyCount ? '<p class="report-line"><strong>30% pending confirmation:</strong> ' + summary.pendingThirtyCount + ' sale(s) need paid/eligibility confirmation.</p>' : '') +
     '</div>';
 }
@@ -753,8 +915,11 @@ function buildBonusSummaryHtml(data, startDate, endDate) {
   const cycleRange = getPayCycleRange();
   const todaySales = getClosedSalesForRange(scoped, todayString(), todayString());
   const todayCommission = getCommissionSummary(todaySales);
+  const todayDailyBonus = calculateDailyBonus(todayTotal);
   const cycleSales = getClosedSalesForRange(scoped, cycleRange.start, cycleRange.end);
   const cycleCommission = getCommissionSummary(cycleSales);
+  const cycleDailyRows = getDailyBonusRows(scoped, cycleRange.start, cycleRange.end);
+  const cycleDailyBonusTotal = cycleDailyRows.reduce((sum, row) => sum + Number(row.bonus || 0), 0);
   const coldSales = cycleSales.filter(isColdBonusEligible);
   const coldTotal = coldSales.reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0);
   const coldBonus = calculateColdBonus(coldTotal);
@@ -767,7 +932,9 @@ function buildBonusSummaryHtml(data, startDate, endDate) {
   const coldBonusStatus = coldTotal >= COLD_BONUS_START ? formatMoney(coldRemaining) + ' to next $10 cold bonus.' : formatMoney(Math.max(0, COLD_BONUS_START - coldTotal)) + ' to first cold bonus.';
   return '<div class="bonus-card"><strong>' + dailyTitle + '</strong><span class="bonus-main">' + formatMoney(periodTotal) + '</span><div class="' + (dailyBonusTotal ? 'bonus-good' : 'bonus-warn') + '">' + dailyBonusLabel + formatMoney(dailyBonusTotal) + '</div><div class="bonus-small">' + dailySmall + '</div></div>' +
     buildCommissionCard('Today commission', todayCommission) +
+    buildEarningsCard('Today estimated earnings', todayCommission, todayDailyBonus, 0, 'Today = commission + today daily bonus. Cold bonus is tracked over the pay cycle.') +
     buildCommissionCard('Pay-cycle commission', cycleCommission) +
+    buildEarningsCard('Pay-cycle estimated earnings', cycleCommission, cycleDailyBonusTotal, coldBonus, 'Pay cycle = commission + daily bonuses earned each day + cold/pay-cycle bonus.') +
     '<div class="bonus-card"><strong>Cold pay-cycle sales</strong><span class="bonus-main">' + formatMoney(coldTotal) + '</span><div>' + coldSales.length + ' cold eligible sales in current cycle</div><div class="' + (coldTotal >= COLD_DAILY_ELIGIBILITY_TARGET ? 'bonus-good' : 'bonus-warn') + '">' + coldStatus + '</div></div>' +
     '<div class="bonus-card"><strong>Cold bonus</strong><span class="bonus-main">' + formatMoney(coldBonus) + '</span><div>$1,000 = $20, then +$10 per $400</div><div class="bonus-small">' + coldBonusStatus + '</div></div>' +
     buildCampaignTargetsHtml(scoped);
@@ -778,8 +945,8 @@ function ticketGroupAmount(donor, baseAmount) { const ticket = getTicketAmount(d
 
 function showDashboard() { document.getElementById('reportBox').style.display = 'none'; document.getElementById('formArea').style.display = formsOpen ? 'grid' : 'none'; document.getElementById('crmTable').style.display = 'table'; }
 function showReportOnly() { document.getElementById('formArea').style.display = 'none'; document.getElementById('crmTable').style.display = 'none'; document.getElementById('reportBox').style.display = 'block'; }
-function openAddContactPanel() { formsOpen = true; showDashboard(); document.getElementById('addContactBox').style.display = 'block'; document.getElementById('editContactBox').style.display = 'none'; document.getElementById('formArea').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-function openEditContactPanel() { formsOpen = true; showDashboard(); document.getElementById('addContactBox').style.display = 'none'; document.getElementById('editContactBox').style.display = 'block'; document.getElementById('formArea').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+function openAddContactPanel() { closeCampaignSettingsPanel(); formsOpen = true; showDashboard(); document.getElementById('addContactBox').style.display = 'block'; document.getElementById('editContactBox').style.display = 'none'; document.getElementById('formArea').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+function openEditContactPanel() { closeCampaignSettingsPanel(); formsOpen = true; showDashboard(); document.getElementById('addContactBox').style.display = 'none'; document.getElementById('editContactBox').style.display = 'grid'; document.getElementById('formArea').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 function closeContactPanels() { formsOpen = false; document.getElementById('formArea').style.display = 'none'; }
 function setFilter(filterName) { currentFilter = filterName; resetRenderLimit(); showDashboard(); renderDonors(); }
 function setCampaignFilter(value) { currentCampaignFilter = value; resetRenderLimit(); showDashboard(); renderDonors(); }
@@ -801,6 +968,126 @@ function donorMatchesSearch(donor, term) {
   return searchableText.includes(cleanTerm) || (digitsOnly && searchableDigits.includes(digitsOnly));
 }
 
+
+function loadCampaignSettingsFromStorage() {
+  try {
+    const raw = localStorage.getItem(CAMPAIGN_SETTINGS_STORAGE_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw) || {};
+    Object.keys(saved).forEach(code => {
+      const campaignCode = String(code || '').trim().toUpperCase();
+      if (!campaignCode) return;
+      CAMPAIGN_TARGETS[campaignCode] = Object.assign({}, CAMPAIGN_TARGETS[campaignCode] || {}, saved[code]);
+    });
+  } catch (error) {
+    console.warn('Could not load campaign settings:', error);
+  }
+}
+function saveCampaignSettingsToStorage() {
+  try {
+    localStorage.setItem(CAMPAIGN_SETTINGS_STORAGE_KEY, JSON.stringify(CAMPAIGN_TARGETS));
+  } catch (error) {
+    console.warn('Could not save campaign settings:', error);
+  }
+}
+function openCampaignSettingsPanel() {
+  closeContactPanels();
+  showDashboard();
+  populateCampaignSettingsSelect();
+  const panel = document.getElementById('campaignSettingsBox');
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function closeCampaignSettingsPanel() {
+  const panel = document.getElementById('campaignSettingsBox');
+  if (panel) panel.style.display = 'none';
+}
+function populateCampaignSettingsSelect() {
+  const select = document.getElementById('settings_campaign_code');
+  if (!select) return;
+  const previous = select.value || (currentCampaignFilter !== 'all' ? currentCampaignFilter : DEFAULT_CAMPAIGN_CODE);
+  const codes = getKnownCampaignCodes(allDonors);
+  select.innerHTML = '';
+  codes.forEach(code => {
+    const option = document.createElement('option');
+    option.value = code;
+    option.textContent = code + ' — ' + (getCampaignLifecycleConfig(code).label || code);
+    select.appendChild(option);
+  });
+  if (!codes.includes(previous)) {
+    const option = document.createElement('option');
+    option.value = previous;
+    option.textContent = previous;
+    select.appendChild(option);
+  }
+  select.value = previous;
+  fillCampaignSettingsForm(select.value);
+}
+function setCampaignSettingsCode(value) { fillCampaignSettingsForm(value); }
+function fillCampaignSettingsForm(code) {
+  const config = getCampaignLifecycleConfig(code || DEFAULT_CAMPAIGN_CODE);
+  const setValue = (id, value) => { const el = document.getElementById(id); if (el) el.value = value || ''; };
+  setValue('settings_campaign_label', config.label);
+  setValue('settings_charity', config.charity);
+  setValue('settings_target', config.target || '');
+  setValue('settings_ticket_amount', config.ticketAmount || '');
+  setValue('settings_campaign_status', config.campaignStatus || (isFinishedCampaignCode(config.code) ? 'Finished' : 'Active'));
+  setValue('settings_calling_end_date', config.callingEndDate);
+  setValue('settings_event_date', config.eventDate);
+  setValue('settings_commission_rate', config.commissionRate || '');
+  setValue('settings_promo_name', config.promoName);
+  setValue('settings_promo_start', config.promoStartDate);
+  setValue('settings_promo_end', config.promoEndDate);
+  setValue('settings_promo_notes', config.promoNotes);
+}
+function saveCampaignSettings() {
+  const codeEl = document.getElementById('settings_campaign_code');
+  const code = String(codeEl && codeEl.value ? codeEl.value : DEFAULT_CAMPAIGN_CODE).trim().toUpperCase();
+  if (!code) { alert('Campaign code is required.'); return; }
+  const getValue = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  CAMPAIGN_TARGETS[code] = {
+    label: getValue('settings_campaign_label') || code,
+    charity: getValue('settings_charity'),
+    target: parseMoneyNumber(getValue('settings_target')),
+    ticketAmount: parseMoneyNumber(getValue('settings_ticket_amount')),
+    campaignStatus: getValue('settings_campaign_status'),
+    callingEndDate: getValue('settings_calling_end_date'),
+    eventDate: getValue('settings_event_date'),
+    commissionRate: getValue('settings_commission_rate'),
+    promoName: getValue('settings_promo_name'),
+    promoStartDate: getValue('settings_promo_start'),
+    promoEndDate: getValue('settings_promo_end'),
+    promoNotes: getValue('settings_promo_notes')
+  };
+  saveCampaignSettingsToStorage();
+  populateCampaignFilter();
+  populateCampaignSettingsSelect();
+  renderBonusStrip();
+  renderDonors();
+  showWarning('Campaign settings saved for ' + code + '. These dashboard settings are stored in this browser.');
+}
+function resetCampaignSettingsForSelected() {
+  const code = String((document.getElementById('settings_campaign_code') || {}).value || '').trim().toUpperCase();
+  if (!code) return;
+  if (!confirm('Reset saved dashboard settings for ' + code + '?')) return;
+  try {
+    const raw = localStorage.getItem(CAMPAIGN_SETTINGS_STORAGE_KEY);
+    const saved = raw ? JSON.parse(raw) : {};
+    delete saved[code];
+    localStorage.setItem(CAMPAIGN_SETTINGS_STORAGE_KEY, JSON.stringify(saved));
+  } catch (error) {
+    console.warn('Could not reset campaign settings:', error);
+  }
+  if (code === '1A2601') CAMPAIGN_TARGETS[code] = { label: 'Northland Autism', target: 40000, charity: 'Autism NZ', callingEndDate: '2026-06-26', eventDate: '2026-06-27', ticketAmount: 65 };
+  else if (code === '1A2621') CAMPAIGN_TARGETS[code] = { label: 'North Shore Autism', target: 700, charity: 'Autism NZ', callingEndDate: '2026-06-26', eventDate: '2026-06-28', ticketAmount: 65 };
+  else if (code === 'G2614') CAMPAIGN_TARGETS[code] = { label: 'GKC Christchurch', target: 700, charity: 'Great Kiwi Circus / Brain Injured Children’s Trust', callingEndDate: '', eventDate: '', ticketAmount: 70 };
+  else delete CAMPAIGN_TARGETS[code];
+  populateCampaignFilter();
+  populateCampaignSettingsSelect();
+  renderBonusStrip();
+  renderDonors();
+}
+
 function getCampaignLifecycleConfig(code) {
   const campaignCode = String(code || '').trim().toUpperCase() || DEFAULT_CAMPAIGN_CODE;
   const base = CAMPAIGN_TARGETS[campaignCode] || {};
@@ -810,7 +1097,14 @@ function getCampaignLifecycleConfig(code) {
     target: Number(base.target || 0),
     charity: base.charity || '',
     callingEndDate: base.callingEndDate || '',
-    eventDate: base.eventDate || ''
+    eventDate: base.eventDate || '',
+    ticketAmount: Number(base.ticketAmount || 0),
+    campaignStatus: base.campaignStatus || '',
+    commissionRate: base.commissionRate || '',
+    promoName: base.promoName || '',
+    promoStartDate: base.promoStartDate || '',
+    promoEndDate: base.promoEndDate || '',
+    promoNotes: base.promoNotes || ''
   };
 }
 function getCampaignTargetAmount(code) {
@@ -1285,12 +1579,12 @@ function buildReport(title, data, startDate, endDate, campaignOnly) {
   let reportData = Array.from(data); if (campaignOnly && currentCampaignFilter !== 'all') reportData = reportData.filter(donor => getCampaignCode(donor) === currentCampaignFilter);
   const worked = getReportDataByRange(reportData, startDate, endDate); const reportCallLogs = getReportCallLogs(reportData, startDate, endDate); const uniqueCalled = new Set(reportCallLogs.map(log => String(log.donor_id || log.card_id || ''))).size; const callQueue = reportData.filter(donor => isCallQueueContact(donor)).length; const noAnswer = worked.filter(donor => isNoAnswer(donor)).length; const callbacks = worked.filter(donor => isCallback(donor)).length; const willCall = worked.filter(donor => isWillCallMe(donor)).length; const checkDetails = worked.filter(donor => isCheckDetails(donor)).length; const checkNumber = worked.filter(donor => isCheckNumber(donor)).length; const putAside = worked.filter(donor => isPutAside(donor)).length; const noCards = worked.filter(donor => isNoStatus(donor)).length; const emailsSentList = reportData.filter(donor => donorHasEmailActivityInRange(donor, startDate, endDate)); const closedSales = reportData.filter(donor => donorHasSaleActivityInRange(donor, startDate, endDate)); const coldEligibleSales = closedSales.filter(isColdBonusEligible);
   emailsSentList.sort((a,b) => String(getReportDateText(b.email_sent_date || b.last_status_change || b.last_called) || '').localeCompare(String(getReportDateText(a.email_sent_date || a.last_status_change || a.last_called) || ''))); closedSales.sort((a,b) => Number(a.sale_number || 999999) - Number(b.sale_number || 999999)); coldEligibleSales.sort((a,b) => String(b.sale_date || '').localeCompare(String(a.sale_date || '')) || String(a.business_name || '').localeCompare(String(b.business_name || '')));
-  const closedSalesTotal = closedSales.reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0); const coldEligibleTotal = coldEligibleSales.reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0); const reportCommission = getCommissionSummary(closedSales);
+  const closedSalesTotal = closedSales.reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0); const coldEligibleTotal = coldEligibleSales.reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0); const reportCommission = getCommissionSummary(closedSales); const reportBonusSummary = getReportBonusSummary(reportData, startDate, endDate, closedSales);
   let closedSalesHtml = closedSales.map(donor => '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — Sale #: ' + escapeHtml(donor.sale_number || '') + ' — Amount: ' + formatMoney(getReportSaleAmount(donor) || 0) + ' — Business: <strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong> — Contact: ' + escapeHtml(getReportContactName(donor)) + (isColdBonusEligible(donor) ? ' — <strong>Cold eligible</strong>' : '') + '</li>').join(''); if (!closedSalesHtml) closedSalesHtml = '<li>No closed sale details found for this report period.</li>';
   let coldSalesHtml = coldEligibleSales.map(donor => '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — Amount: ' + formatMoney(getReportSaleAmount(donor) || 0) + ' — Business: <strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong> — Date: ' + escapeHtml(formatNzShortDate(donor.sale_date || donor.last_status_change || '')) + ' — Reason: ' + escapeHtml(getColdReason(donor)) + '</li>').join(''); if (!coldSalesHtml) coldSalesHtml = '<li>No cold eligible sales found for this report period.</li>';
   let emailsSentHtml = emailsSentList.map(donor => '<li>ID: ' + escapeHtml(donor.card_id || '') + ' — Business: <strong>' + escapeHtml(donor.business_name || 'No business name') + '</strong> — Contact: ' + escapeHtml(getReportContactName(donor)) + ' — Suggested ask: ' + formatMoney(getAskAmount(donor) || 0) + ' — Email grouping: ' + escapeHtml(getEmailGroupingNote(donor) || '') + '</li>').join(''); if (!emailsSentHtml) emailsSentHtml = '<li>No email-sent details found for this report period.</li>';
   let callHistoryHtml = reportCallLogs.slice(0, 100).map(log => '<li>' + escapeHtml(getLastCalledDisplay(log.called_at)) + ' — ID: ' + escapeHtml(log.card_id || '') + ' — ' + escapeHtml(log.business_name || '') + ' — ' + escapeHtml(log.number_type || '') + ': ' + escapeHtml(log.number_called || '') + ' — Status then: ' + escapeHtml(log.status_at_call || '') + '</li>').join(''); if (!callHistoryHtml) callHistoryHtml = '<li>No call attempts logged for this report period.</li>';
-  const reportBox = document.getElementById('reportBox'); showReportOnly(); reportBox.innerHTML = '<h2>' + escapeHtml(title) + '</h2>' + (startDate && endDate ? '<p><strong>Period:</strong> ' + escapeHtml(startDate) + ' to ' + escapeHtml(endDate) + '</p>' : '') + '<div class="bonus-strip">' + buildBonusSummaryHtml(reportData, startDate || todayString(), endDate || todayString()) + '</div><p class="report-line"><strong>Total contacts in scope:</strong> ' + reportData.length + '</p><p class="report-line"><strong>Total donors loaded from Supabase:</strong> ' + allDonors.length + ' across ' + (donorLoadMeta.pages || 1) + ' page(s)</p><p class="report-line"><strong>Still in call queue / not called:</strong> ' + callQueue + '</p><p class="report-line"><strong>Contacts moved / worked:</strong> ' + worked.length + '</p><p class="report-line"><strong>Total phone call attempts:</strong> ' + reportCallLogs.length + (callLogReady ? '' : ' (call logging not active)') + '</p><p class="report-line"><strong>Unique contacts called:</strong> ' + uniqueCalled + '</p><p class="report-line"><strong>No answers moved:</strong> ' + noAnswer + '</p><p class="report-line"><strong>Callbacks:</strong> ' + callbacks + '</p><p class="report-line"><strong>Will call me:</strong> ' + willCall + '</p><p class="report-line"><strong>Check details:</strong> ' + checkDetails + '</p><p class="report-line"><strong>Check number / wrong number:</strong> ' + checkNumber + '</p><p class="report-line"><strong>Put aside / maybe later:</strong> ' + putAside + '</p><p class="report-line"><strong>No / not interested:</strong> ' + noCards + '</p><p class="report-line"><strong>Emails sent:</strong> ' + emailsSentList.length + '</p><p class="report-line"><strong>Closed sales:</strong> ' + closedSales.length + '</p><p class="report-line"><strong>Total sales amount:</strong> ' + formatMoney(closedSalesTotal) + '</p><p class="report-line"><strong>Cold eligible sales in this report:</strong> ' + coldEligibleSales.length + ' / ' + formatMoney(coldEligibleTotal) + '</p>' + buildCommissionReportHtml('Report commission', reportCommission) + '<h3>Campaign Breakdown</h3>' + getCampaignBreakdownHtml(worked, closedSales, emailsSentList, reportCallLogs) + '<h3>Closed Sales Details</h3><ul class="report-list">' + closedSalesHtml + '</ul><h3>Cold Eligible Sales Details</h3><ul class="report-list">' + coldSalesHtml + '</ul><h3>Email Sent Details</h3><ul class="report-list">' + emailsSentHtml + '</ul><h3>Call Attempts Logged</h3><ul class="report-list">' + callHistoryHtml + '</ul><div class="no-print" style="margin-top: 20px;"><button onclick="backToCallQueue()">Back to Call Queue</button><button onclick="window.print()">Print / Save as PDF</button></div>';
+  const reportBox = document.getElementById('reportBox'); showReportOnly(); reportBox.innerHTML = '<h2>' + escapeHtml(title) + '</h2>' + (startDate && endDate ? '<p><strong>Period:</strong> ' + escapeHtml(startDate) + ' to ' + escapeHtml(endDate) + '</p>' : '') + '<div class="bonus-strip">' + buildBonusSummaryHtml(reportData, startDate || todayString(), endDate || todayString()) + '</div><p class="report-line"><strong>Total contacts in scope:</strong> ' + reportData.length + '</p><p class="report-line"><strong>Total donors loaded from Supabase:</strong> ' + allDonors.length + ' across ' + (donorLoadMeta.pages || 1) + ' page(s)</p><p class="report-line"><strong>Still in call queue / not called:</strong> ' + callQueue + '</p><p class="report-line"><strong>Contacts moved / worked:</strong> ' + worked.length + '</p><p class="report-line"><strong>Total phone call attempts:</strong> ' + reportCallLogs.length + (callLogReady ? '' : ' (call logging not active)') + '</p><p class="report-line"><strong>Unique contacts called:</strong> ' + uniqueCalled + '</p><p class="report-line"><strong>No answers moved:</strong> ' + noAnswer + '</p><p class="report-line"><strong>Callbacks:</strong> ' + callbacks + '</p><p class="report-line"><strong>Will call me:</strong> ' + willCall + '</p><p class="report-line"><strong>Check details:</strong> ' + checkDetails + '</p><p class="report-line"><strong>Check number / wrong number:</strong> ' + checkNumber + '</p><p class="report-line"><strong>Put aside / maybe later:</strong> ' + putAside + '</p><p class="report-line"><strong>No / not interested:</strong> ' + noCards + '</p><p class="report-line"><strong>Emails sent:</strong> ' + emailsSentList.length + '</p><p class="report-line"><strong>Closed sales:</strong> ' + closedSales.length + '</p><p class="report-line"><strong>Total sales amount:</strong> ' + formatMoney(closedSalesTotal) + '</p><p class="report-line"><strong>Cold eligible sales in this report:</strong> ' + coldEligibleSales.length + ' / ' + formatMoney(coldEligibleTotal) + '</p>' + buildCommissionReportHtml('Report earnings: commission + bonuses', reportCommission, reportBonusSummary) + '<h3>Campaign Breakdown</h3>' + getCampaignBreakdownHtml(worked, closedSales, emailsSentList, reportCallLogs) + '<h3>Closed Sales Details</h3><ul class="report-list">' + closedSalesHtml + '</ul><h3>Cold Eligible Sales Details</h3><ul class="report-list">' + coldSalesHtml + '</ul><h3>Email Sent Details</h3><ul class="report-list">' + emailsSentHtml + '</ul><h3>Call Attempts Logged</h3><ul class="report-list">' + callHistoryHtml + '</ul><div class="no-print" style="margin-top: 20px;"><button onclick="backToCallQueue()">Back to Call Queue</button><button onclick="window.print()">Print / Save as PDF</button></div>';
 }
 function togglePreviousDailyControls() { const box = document.getElementById('previousDailyControls'); if (!box) return; box.style.display = box.style.display === 'inline-block' ? 'none' : 'inline-block'; setDefaultReportDate(); }
 function setDefaultReportDate() { const input = document.getElementById('reportDate'); if (input && !input.value) input.value = todayString(); }
@@ -1300,6 +1594,7 @@ function showPayCycleReport() { const range = getPayCycleRange(); buildReport('P
 function showCampaignReport() { const label = currentCampaignFilter === 'all' ? 'All Campaigns' : currentCampaignFilter; buildReport('Campaign Fundraising Report - ' + label, allDonors, null, null, true); }
 
 setDefaultReportDate();
+loadCampaignSettingsFromStorage();
 loadDonors();
 </script>
 </body>
