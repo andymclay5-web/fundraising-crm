@@ -1600,6 +1600,21 @@ function getCleanLocalSchoolLine(donor) {
   if (!line) return '';
   return shortText(line, 85);
 }
+function getGkcVerificationLevel(donor) {
+  if (!isGkcCampaign(donor)) return '';
+  const status = normaliseStatus(donor.status);
+  const reason = String(donor.call_block_reason || donor.verification_status || donor.contactability_status || donor.phone_qa_status || donor.source_card_qa_status || '').toLowerCase();
+  if (isGkcCallVerified(donor)) return 'Call ready';
+  if (status.includes('check number') || reason.includes('phone missing') || reason.includes('phone failed') || reason.includes('bad number')) return 'Check number';
+  if (reason.includes('pcl/card') || reason.includes('source') || reason.includes('card source')) return 'Source check';
+  if (reason.includes('contact name') || reason.includes('find name') || reason.includes('named person')) return 'Find name';
+  if (reason.includes('direct route') || reason.includes('manager') || reason.includes('owner')) return 'Ask manager';
+  if (reason.includes('school')) return 'School check';
+  if (reason.includes('ask') || reason.includes('history')) return 'Ask/history';
+  if (status.includes('check detail')) return 'Check details';
+  return 'Not call ready';
+}
+
 function getGkcVerificationBadgeHtml(donor) {
   if (!isGkcCampaign(donor)) return '';
   const level = getGkcVerificationLevel(donor);
