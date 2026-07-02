@@ -1,12 +1,10 @@
--- Fundraising CRM v18.7 entered-sales reporting setup
--- Run once before using the v18.7 dashboard.
+-- v18.7.1 entered-sales reporting fix
+-- Adds entered timestamp fields if not already present, and gives you a safe way to stamp today's already-entered sales.
 
--- 1) Add entered-sales date fields used by reports, commission and bonuses.
 ALTER TABLE donors
   ADD COLUMN IF NOT EXISTS pcl_entered_date date,
   ADD COLUMN IF NOT EXISTS pcl_entered_at timestamptz;
 
--- 2) Add/confirm explicit commission/promo fields so the dashboard can stop relying on messy notes.
 ALTER TABLE donors
   ADD COLUMN IF NOT EXISTS commission_rate numeric,
   ADD COLUMN IF NOT EXISTS commission_reason text,
@@ -16,16 +14,13 @@ ALTER TABLE donors
   ADD COLUMN IF NOT EXISTS promotion_name text,
   ADD COLUMN IF NOT EXISTS promotion_eligible boolean;
 
--- 3) Preview entered sales that still have no entered date.
--- These old rows cannot be counted correctly by entered-date reports until dated.
+-- Preview entered sales that are missing an entered date.
 SELECT
   card_id,
   campaign_code,
   business_name,
-  contact_name,
   status,
   sale_date,
-  sale_number,
   sale_amount,
   donation,
   entered_sale_amount,
@@ -34,33 +29,20 @@ SELECT
   pcl_entered_at,
   last_status_change
 FROM donors
-WHERE status IN ('Closed Sale', 'Personal Donation')
+WHERE campaign_code = 'G2607'
+  AND status IN ('Closed Sale', 'Personal Donation')
   AND pcl_entered IS TRUE
   AND pcl_entered_date IS NULL
-ORDER BY campaign_code, sale_date DESC NULLS LAST, sale_number DESC NULLS LAST;
+ORDER BY sale_date NULLS LAST, last_status_change NULLS LAST, business_name;
 
--- 4) Optional one-off backfill for sales you entered today but closed yesterday.
--- Run this only if the preview above shows the rows you want counted in today's bonuses/commission.
--- Adjust campaign_code if needed.
+-- Optional: if these are the sales you entered today, uncomment and run this.
 -- UPDATE donors
 -- SET
 --   pcl_entered_date = CURRENT_DATE,
 --   pcl_entered_at = NOW(),
---   phone_notes = CONCAT_WS(E'\n', NULLIF(phone_notes, ''), 'v18.7 backfill: PCL entered date set to today so entered-sales reports/bonuses count on entry date.')
+--   last_status_change = NOW()
 -- WHERE campaign_code = 'G2607'
 --   AND status IN ('Closed Sale', 'Personal Donation')
 --   AND pcl_entered IS TRUE
 --   AND pcl_entered_date IS NULL
---   AND sale_date = CURRENT_DATE - INTERVAL '1 day'
--- RETURNING
---   card_id,
---   campaign_code,
---   business_name,
---   status,
---   sale_date,
---   sale_amount,
---   donation,
---   entered_sale_amount,
---   pcl_entered,
---   pcl_entered_date,
---   pcl_entered_at;
+-- RETURNING card_id, campaign_code, business_name, status, sale_date, sale_amount, donation, entered_sale_amount, pcl_entered, pcl_entered_date, pcl_entered_at;
