@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Fundraising CRM Cloud Dashboard LIVE v18.7.14 full campaign + bonus banner</title>
+<title>Fundraising CRM Cloud Dashboard LIVE v18.7.14 compact four-box summary</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <style>
 body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 14px; }
@@ -350,42 +350,80 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
   .no-print { display: none !important; }
 }
 
+/* v18.7.14: compact four-box summary — closed, today, pay cycle with cold, campaign */
+#bonusStrip .campaign-summary-card { min-width: 0; }
+#bonusStrip .campaign-summary-card .bonus-main { display:block; }
 
-/* v18.7.14 COMPLETE TOP BANNER RESTORE */
-#bonusStrip.bonus-strip {
-  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-  gap: 7px !important;
-  align-items: stretch !important;
-}
+
+/* v18.7.16 cold-sales visibility fix */
 #bonusStrip .bonus-card {
-  min-width: 0;
-}
-#bonusStrip .history-motivation-card {
-  grid-column: span 2;
-}
-#bonusStrip .campaign-target-card {
-  grid-column: 1 / -1 !important;
-  width: 100% !important;
-  max-width: 100% !important;
   overflow: visible !important;
 }
-#bonusStrip .campaign-target-card .target-table-wrap {
-  max-width: 100% !important;
-  overflow-x: auto !important;
+#bonusStrip .cold-sales-strip {
+  margin-top: 4px;
+  padding: 4px 5px;
+  border: 1px solid #8bc18b;
+  background: #f3fff3;
+  font-size: 10px;
+  line-height: 1.2;
 }
-@media (max-width: 1250px) {
-  #bonusStrip.bonus-strip { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-  #bonusStrip .history-motivation-card { grid-column: span 2; }
+#bonusStrip .cold-sales-strip strong {
+  display: inline !important;
+  color: #145c2b;
+  font-size: 10px !important;
+  margin: 0 4px 0 0 !important;
+  white-space: normal !important;
+  overflow: visible !important;
 }
-@media (max-width: 760px) {
-  #bonusStrip.bonus-strip { grid-template-columns: 1fr !important; }
-  #bonusStrip .history-motivation-card { grid-column: span 1; }
+#bonusStrip .cold-sales-strip .cold-main {
+  font-weight: bold;
+  color: #145c2b;
+}
+
+
+/* v18.7.16 compact four-box visibility fix */
+#bonusStrip .bonus-card {
+  overflow: visible !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+#bonusStrip .bonus-small {
+  overflow: visible !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+}
+#bonusStrip .closed-sales-detail {
+  margin-top: 3px;
+  font-weight: bold;
+  color: #8a5a00;
+}
+#bonusStrip .cold-sales-strip {
+  margin-top: 4px;
+  padding: 4px 5px;
+  border: 1px solid #8bc18b;
+  background: #f3fff3;
+  font-size: 10px;
+  line-height: 1.2;
+  overflow: visible;
+  white-space: normal;
+}
+#bonusStrip .cold-sales-strip strong {
+  display: inline !important;
+  color: #145c2b !important;
+  font-size: 10px !important;
+  margin: 0 4px 0 0 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+}
+#bonusStrip .cold-sales-strip .cold-main {
+  font-weight: bold;
+  color: #145c2b;
 }
 
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.7.14 full campaign + bonus banner</h1>
+<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.7.17 $770 cold bonus gate</h1>
 <div id="errorBox"></div>
 <div id="warnBox"></div>
 
@@ -941,9 +979,11 @@ function getReportBonusSummary(data, startDate, endDate, enteredSalesOverride) {
   const coldBonus = calculateColdBonus(coldEligibleTotal);
   const dailyRows = startDate && endDate ? getDailyBonusRows(scoped, startDate, endDate) : [];
   const dailyBonusTotal = dailyRows.reduce((sum, row) => sum + Number(row.bonus || 0), 0);
+  const pendingDailyBonusTotal = dailyRows.reduce((sum, row) => sum + Number(row.pendingBonus || 0), 0);
   return {
     dailyRows: dailyRows,
     dailyBonusTotal: dailyBonusTotal,
+    pendingDailyBonusTotal: pendingDailyBonusTotal,
     coldEligibleTotal: coldEligibleTotal,
     coldBonus: coldBonus,
     bonusSubtotal: dailyBonusTotal + coldBonus
@@ -1073,13 +1113,48 @@ function getDateList(startDate, endDate) {
   }
   return dates;
 }
+function getPayCycleRangeForDate(referenceDate) {
+  const refText = referenceDate || todayString();
+  const ref = new Date(refText + 'T00:00:00');
+  const base = new Date(PAY_CYCLE_START + 'T00:00:00');
+  const dayMs = 24 * 60 * 60 * 1000;
+  let diffDays = Math.floor((ref - base) / dayMs);
+  let cycles = Math.floor(diffDays / 14);
+  if (diffDays < 0) cycles = 0;
+  const start = new Date(base.getTime() + cycles * 14 * dayMs);
+  const end = new Date(start.getTime() + 13 * dayMs);
+  const toDateText = date => date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+  return { start: toDateText(start), end: toDateText(end) };
+}
+
+function getColdSalesTotalForPayCycle(data, referenceDate) {
+  const range = getPayCycleRangeForDate(referenceDate);
+  const source = (Array.isArray(allDonors) && allDonors.length) ? allDonors : Array.from(data || []);
+  return getEnteredSalesForRange(source, range.start, range.end)
+    .filter(isColdBonusEligible)
+    .reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0);
+}
+
 function getDailyBonusRows(data, startDate, endDate) {
   return getDateList(startDate, endDate).map(dateText => {
     const total = getSalesTotalForRange(data, dateText, dateText);
-    const bonus = calculateDailyBonus(total);
+    const rawBonus = calculateDailyBonus(total);
+    const cycleColdTotal = getColdSalesTotalForPayCycle(data, dateText);
+    const gateMet = cycleColdTotal >= COLD_DAILY_ELIGIBILITY_TARGET;
+    const bonus = gateMet ? rawBonus : 0;
     const nextTarget = getNextDailyBonusTarget(total);
     const untilNext = Math.max(0, nextTarget - total);
-    return { date: dateText, total: total, bonus: bonus, nextTarget: nextTarget, untilNext: untilNext };
+    return {
+      date: dateText,
+      total: total,
+      rawBonus: rawBonus,
+      bonus: bonus,
+      pendingBonus: gateMet ? 0 : rawBonus,
+      gateMet: gateMet,
+      cycleColdTotal: cycleColdTotal,
+      nextTarget: nextTarget,
+      untilNext: untilNext
+    };
   });
 }
 function getDailyBonusSummaryText(rows) {
@@ -1162,6 +1237,32 @@ function buildAllCampaignTargetsCard(data) {
 function buildCampaignTargetsHtml(data) {
   if (currentCampaignFilter === 'all') return buildAllCampaignTargetsCard(allDonors);
   return buildSingleCampaignTargetCard(currentCampaignFilter, allDonors);
+}
+
+function buildCompactCampaignSummaryCard(data) {
+  const activeCodes = getActiveCampaignCodes(allDonors);
+  let code = currentCampaignFilter !== 'all' ? currentCampaignFilter : '';
+  if (!code) {
+    if (activeCodes.includes('G2607')) code = 'G2607';
+    else code = activeCodes[0] || 'G2607';
+  }
+  const config = getCampaignLifecycleConfig(code);
+  const target = Number(config.target || 0);
+  const total = getCampaignTotalSales(code, allDonors);
+  const remaining = Math.max(0, target - total);
+  const pct = target > 0 ? Math.min(999, Math.round((total / target) * 100)) : 0;
+  const counts = getCampaignLateWorkCounts(code, allDonors);
+  const ticketAmount = Number(config.ticketAmount || 0);
+  const label = config.label || code;
+  const targetText = target ? formatMoney(total) + ' / ' + formatMoney(target) : formatMoney(total);
+  const progressText = target ? pct + '% · ' + formatMoney(remaining) + ' left' : 'No target set';
+  const routeText = 'Queue ' + counts.activeCallQueue + ' · Unentered ' + counts.unenteredSales + ' · Email ' + counts.email;
+  const ticketText = ticketAmount ? formatMoney(ticketAmount) + ' tickets' : 'Ticket value not set';
+  return '<div class="bonus-card campaign-summary-card"><strong>Campaign — ' + escapeHtml(code) + '</strong>' +
+    '<span class="bonus-main">' + targetText + '</span>' +
+    '<div class="' + (target && total >= target ? 'bonus-good' : 'bonus-warn') + '">' + progressText + '</div>' +
+    '<div class="bonus-small">' + escapeHtml(label) + ' · ' + escapeHtml(ticketText) + '</div>' +
+    '<div class="bonus-small">' + routeText + '</div></div>';
 }
 
 function getVisibleHistoryValue(donor) {
@@ -1277,75 +1378,99 @@ function buildBonusSummaryHtml(data, startDate, endDate) {
   const displayStart = startDate || todayString();
   const displayEnd = endDate || displayStart;
 
-  // Closed sales remain operationally visible; entered sales drive commission and bonus calculations.
+  // Box 1: closed sales remain visible even before PCL entry.
   const closedPeriodSales = scoped.filter(donor => donorHasClosedSaleActivityInRange(donor, displayStart, displayEnd));
   const closedPeriodTotal = closedPeriodSales.reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0);
   const unenteredPeriodSales = closedPeriodSales.filter(donor => !isTrueFlag(donor.pcl_entered));
   const unenteredPeriodTotal = unenteredPeriodSales.reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0);
 
-  const enteredPeriodSales = getEnteredSalesForRange(scoped, displayStart, displayEnd);
-  const periodTotal = enteredPeriodSales.reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0);
-  const dailyRows = getDailyBonusRows(scoped, displayStart, displayEnd);
-  const dailyBonusTotal = isSingleDay ? calculateDailyBonus(periodTotal) : dailyRows.reduce((sum, row) => sum + Number(row.bonus || 0), 0);
-  const nextDaily = getNextDailyBonusTarget(periodTotal);
-  const dailyRemaining = Math.max(0, nextDaily - periodTotal);
-
+  // Current pay-cycle cold-sales gate applies across the whole loaded CRM.
   const cycleRange = getPayCycleRange();
+  const gateSource = (Array.isArray(allDonors) && allDonors.length) ? allDonors : scoped;
+  const gateCycleSales = getEnteredSalesForRange(gateSource, cycleRange.start, cycleRange.end);
+  const gateColdSales = gateCycleSales.filter(isColdBonusEligible);
+  const coldTotal = gateColdSales.reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0);
+  const bonusGateMet = coldTotal >= COLD_DAILY_ELIGIBILITY_TARGET;
+  const gateRemaining = Math.max(0, COLD_DAILY_ELIGIBILITY_TARGET - coldTotal);
+
+  // Box 2: today's commission plus daily bonus only after the $770 cold gate is met.
   const todaySales = getEnteredSalesForRange(scoped, todayString(), todayString());
   const todayTotal = todaySales.reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0);
-  const todayDailyBonus = calculateDailyBonus(todayTotal);
-  const todayNextDaily = getNextDailyBonusTarget(todayTotal);
-  const todayDailyRemaining = Math.max(0, todayNextDaily - todayTotal);
+  const todaySummary = getCommissionSummary(todaySales);
+  const rawTodayDailyBonus = calculateDailyBonus(todayTotal);
+  const todayDailyBonus = bonusGateMet ? rawTodayDailyBonus : 0;
+  const todayNext = getNextDailyBonusTarget(todayTotal);
+  const todayRemaining = Math.max(0, todayNext - todayTotal);
+  const todayEarnings = Number(todaySummary.totalCommission || 0) + todayDailyBonus;
+  const todayBonusText = !bonusGateMet
+    ? formatMoney(gateRemaining) + ' cold sales to $770 bonus gate' + (rawTodayDailyBonus ? ' · ' + formatMoney(rawTodayDailyBonus) + ' daily bonus pending' : '')
+    : (todayRemaining ? formatMoney(todayRemaining) + ' to next daily bonus level' : 'Next daily bonus level reached');
 
+  // Box 3: current pay-cycle earnings, cold progress and bonus gate.
   const cycleSales = getEnteredSalesForRange(scoped, cycleRange.start, cycleRange.end);
+  const cycleTotal = cycleSales.reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0);
+  const cycleSummary = getCommissionSummary(cycleSales);
   const cycleDailyRows = getDailyBonusRows(scoped, cycleRange.start, cycleRange.end);
   const cycleDailyBonusTotal = cycleDailyRows.reduce((sum, row) => sum + Number(row.bonus || 0), 0);
-
-  const coldSales = cycleSales.filter(isColdBonusEligible);
-  const coldTotal = coldSales.reduce((sum, donor) => sum + Number(getReportSaleAmount(donor) || 0), 0);
+  const pendingDailyBonusTotal = cycleDailyRows.reduce((sum, row) => sum + Number(row.pendingBonus || 0), 0);
   const coldBonus = calculateColdBonus(coldTotal);
   const nextCold = getNextColdTarget(coldTotal);
   const coldRemaining = Math.max(0, nextCold - coldTotal);
-  const coldThresholdRemaining = Math.max(0, COLD_DAILY_ELIGIBILITY_TARGET - coldTotal);
-  const firstColdBonusRemaining = Math.max(0, COLD_BONUS_START - coldTotal);
+  const firstColdRemaining = Math.max(0, COLD_BONUS_START - coldTotal);
+  const cycleEarnings = Number(cycleSummary.totalCommission || 0) + cycleDailyBonusTotal + coldBonus;
+
+  let coldNextText = '';
+  if (!bonusGateMet) {
+    coldNextText = formatMoney(gateRemaining) + ' to $770 bonus gate';
+    if (pendingDailyBonusTotal > 0) coldNextText += ' · ' + formatMoney(pendingDailyBonusTotal) + ' daily bonus pending';
+  } else if (coldTotal < COLD_BONUS_START) {
+    coldNextText = 'Bonus gate met · ' + formatMoney(firstColdRemaining) + ' to first $20 cold bonus';
+  } else {
+    coldNextText = coldRemaining > 0
+      ? formatMoney(coldRemaining) + ' to next $10 cold bonus'
+      : 'Next cold bonus level reached';
+  }
 
   const closedTitle = isSingleDay ? 'Closed today' : 'Closed in period';
-  const dailyTitle = isSingleDay ? 'Daily sales / bonus' : 'Period sales / daily bonuses';
-  const dailyStatus = isSingleDay
-    ? (dailyBonusTotal ? formatMoney(dailyBonusTotal) + ' daily bonus earned' : 'No daily bonus yet')
-    : formatMoney(dailyBonusTotal) + ' daily bonuses across period';
-  const dailyNextText = dailyRemaining > 0
-    ? formatMoney(dailyRemaining) + ' until next daily bonus level.'
-    : 'Next daily bonus level reached.';
-  const todayEarningsNote = todayDailyRemaining > 0
-    ? formatMoney(todayDailyRemaining) + ' until next daily bonus level.'
-    : 'Next daily bonus level reached.';
-  const cycleNote = 'Pay cycle ' + formatNzShortDate(cycleRange.start) + '–' + formatNzShortDate(cycleRange.end) + '. Daily bonuses ' + formatMoney(cycleDailyBonusTotal) + '; cold bonus ' + formatMoney(coldBonus) + '.';
-  const coldProgressText = coldThresholdRemaining > 0
-    ? formatMoney(coldThresholdRemaining) + ' to $770 cold threshold.'
-    : 'Cold threshold met.';
-  const coldBonusNextText = coldTotal < COLD_BONUS_START
-    ? formatMoney(firstColdBonusRemaining) + ' to first cold bonus.'
-    : (coldRemaining > 0 ? formatMoney(coldRemaining) + ' to next $10 cold bonus.' : 'Next cold bonus level reached.');
 
-  return '<div class="bonus-card"><strong>' + closedTitle + '</strong><span class="bonus-main">' + formatMoney(closedPeriodTotal) + '</span>' +
-      '<div class="bonus-small">' + closedPeriodSales.length + ' closed · ' + unenteredPeriodSales.length + ' unentered · ' + formatMoney(unenteredPeriodTotal) + '</div>' +
-      '<div class="' + (unenteredPeriodSales.length ? 'bonus-warn' : 'bonus-good') + ' bonus-small">' + (unenteredPeriodSales.length ? 'Needs entering' : 'All entered') + '</div></div>' +
-    '<div class="bonus-card"><strong>' + dailyTitle + '</strong><span class="bonus-main">' + formatMoney(periodTotal) + '</span>' +
-      '<div class="' + (dailyBonusTotal ? 'bonus-good' : 'bonus-warn') + '">' + dailyStatus + '</div>' +
-      '<div class="bonus-small">' + dailyNextText + '</div></div>' +
-    buildCommissionCard('Today commission', getCommissionSummary(todaySales)) +
-    buildEarningsBreakdownCard('Today earnings', todaySales, todayDailyBonus, 0, todayEarningsNote) +
-    buildCommissionCard('Pay-cycle commission', getCommissionSummary(cycleSales)) +
-    buildEarningsBreakdownCard('Pay-cycle earnings', cycleSales, cycleDailyBonusTotal, coldBonus, cycleNote) +
-    '<div class="bonus-card"><strong>Cold pay-cycle sales</strong><span class="bonus-main">' + formatMoney(coldTotal) + '</span>' +
-      '<div>' + coldSales.length + ' cold-eligible entered sale(s)</div>' +
-      '<div class="' + (coldThresholdRemaining > 0 ? 'bonus-warn' : 'bonus-good') + ' bonus-small">' + coldProgressText + '</div></div>' +
-    '<div class="bonus-card"><strong>Cold bonus</strong><span class="bonus-main">' + formatMoney(coldBonus) + '</span>' +
-      '<div class="bonus-small">$1,000 = $20, then +$10 per $400</div>' +
-      '<div class="' + (coldBonus ? 'bonus-good' : 'bonus-warn') + ' bonus-small">' + coldBonusNextText + '</div></div>' +
-    buildHistoryComparisonCard(scoped) +
-    buildCampaignTargetsHtml(scoped);
+  return '<div class="bonus-card"><strong>' + closedTitle + '</strong>' +
+      '<span class="bonus-main">' + formatMoney(closedPeriodTotal) + '</span>' +
+      '<div class="bonus-small">' + closedPeriodSales.length + ' closed</div>' +
+      '<div class="' + (unenteredPeriodSales.length ? 'closed-sales-detail' : 'bonus-good') + ' bonus-small">' +
+        (unenteredPeriodSales.length
+          ? unenteredPeriodSales.length + ' unentered · ' + formatMoney(unenteredPeriodTotal) + ' needs entering'
+          : 'All entered') +
+      '</div></div>' +
+
+    '<div class="bonus-card earnings-card"><strong>Today earnings</strong>' +
+      '<span class="bonus-main">' + formatMoney(todayEarnings) + '</span>' +
+      '<div class="earnings-grid-line">' +
+        '<span>Sales</span><span>' + todaySales.length + ' / ' + formatMoney(todayTotal) + '</span>' +
+        '<span>20%</span><span>' + formatMoney(todaySummary.standardCommission) + '</span>' +
+        '<span>30%</span><span>' + formatMoney(todaySummary.promoCommission) + '</span>' +
+        '<span>Commission</span><span>' + formatMoney(todaySummary.totalCommission) + '</span>' +
+        '<span>Daily bonus</span><span>' + formatMoney(todayDailyBonus) + '</span>' +
+      '</div>' +
+      '<div class="bonus-small">' + escapeHtml(todayBonusText) + '</div></div>' +
+
+    '<div class="bonus-card earnings-card"><strong>Pay-cycle earnings</strong>' +
+      '<span class="bonus-main">' + formatMoney(cycleEarnings) + '</span>' +
+      '<div class="earnings-grid-line">' +
+        '<span>Sales</span><span>' + cycleSales.length + ' / ' + formatMoney(cycleTotal) + '</span>' +
+        '<span>20%</span><span>' + formatMoney(cycleSummary.standardCommission) + '</span>' +
+        '<span>30%</span><span>' + formatMoney(cycleSummary.promoCommission) + '</span>' +
+        '<span>Commission</span><span>' + formatMoney(cycleSummary.totalCommission) + '</span>' +
+        '<span>Daily bonuses</span><span>' + formatMoney(cycleDailyBonusTotal) + '</span>' +
+      '</div>' +
+      '<div class="cold-sales-strip"><strong>COLD SALES</strong>' +
+        '<span class="cold-main">' + formatMoney(coldTotal) + '</span>' +
+        ' · ' + gateColdSales.length + ' sale(s)' +
+        ' · cold bonus ' + formatMoney(coldBonus) +
+        '<br>' + escapeHtml(coldNextText) +
+      '</div>' +
+      '<div class="bonus-small">' + escapeHtml(formatNzShortDate(cycleRange.start)) + '–' + escapeHtml(formatNzShortDate(cycleRange.end)) + '</div></div>' +
+
+    buildCompactCampaignSummaryCard(scoped);
 }
 
 function renderBonusStrip() { const box = document.getElementById('bonusStrip'); if (box) box.innerHTML = buildBonusSummaryHtml(getDashboardScopeData(), todayString(), todayString()); }
@@ -1501,6 +1626,7 @@ function resetCampaignSettingsForSelected() {
   }
   if (code === '1A2601') CAMPAIGN_TARGETS[code] = { label: 'Northland Autism', target: 40000, charity: 'Autism NZ', callingEndDate: '2026-06-26', eventDate: '2026-06-27', ticketAmount: 65 };
   else if (code === '1A2621') CAMPAIGN_TARGETS[code] = { label: 'North Shore Autism', target: 700, charity: 'Autism NZ', callingEndDate: '2026-06-26', eventDate: '2026-06-28', ticketAmount: 65 };
+  else if (code === 'G2607') CAMPAIGN_TARGETS[code] = { label: 'GKC Hawke’s Bay', target: 12500, charity: 'Great Kiwi Circus / Brain Injured Children’s Trust', callingEndDate: '', eventDate: '', ticketAmount: 70 };
   else if (code === 'G2614') CAMPAIGN_TARGETS[code] = { label: 'GKC Christchurch', target: 700, charity: 'Great Kiwi Circus / Brain Injured Children’s Trust', callingEndDate: '', eventDate: '', ticketAmount: 70 };
   else delete CAMPAIGN_TARGETS[code];
   populateCampaignFilter();
