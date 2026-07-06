@@ -423,7 +423,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.7.17 $770 cold bonus gate</h1>
+<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.7.18 strict cold classification</h1>
 <div id="errorBox"></div>
 <div id="warnBox"></div>
 
@@ -903,7 +903,6 @@ function isThirtyPercentCommissionSale(donor) {
   if (configRate >= 0.3 || configRate >= 30) return true;
   if (isTrueFlag(donor.promotion_eligible)) return true;
   if (isTrueFlag(donor.cold_bonus_eligible)) return true;
-  if (isTrueFlag(donor.cold_card)) return true;
   if (isGkcCampaign(donor) && isColdBonusEligible(donor)) return true;
   return false;
 }
@@ -1034,44 +1033,64 @@ function addOptionalSaleAmountFields(updateData, donor, amount) {
   if (hasOptionalDonorColumn('donation')) updateData.donation = lockedAmount;
 }
 function getTextForColdCheck(donor) {
-  return [donor.history_group, donor.sales_history, donor.notes, donor.phone_notes, donor.check_details_reason].join(' ').toLowerCase();
+  // v18.7.18: classification must not scan notes, phone notes, sales history or check-details text.
+  return normalizeHistoryGroupText(donor);
 }
 function getExplicitColdYear(donor) {
-  const candidates = [donor.last_any_sale_year, donor.last_autism_sale_year];
-  for (const value of candidates) { const n = Number(value || 0); if (Number.isFinite(n) && n > 0) return n; }
+  const candidates = [donor.last_any_sale_year];
+  for (const value of candidates) {
+    const n = Number(value || 0);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
   return 0;
+}
+function hasExplicitColdHistoryGroup(donor) {
+  const group = normalizeHistoryGroupText(donor);
+  if (!group) return false;
+
+  const exactColdGroups = new Set([
+    'cold',
+    'cold pre 2020',
+    'pre 2020',
+    'no sale since 2020',
+    'cold no history',
+    'cold no useful history',
+    'cold no visible sale history',
+    'basic cold',
+    'strong cold',
+    'c1 strong cold',
+    'c2 basic cold'
+  ]);
+  if (exactColdGroups.has(group)) return true;
+
+  // Allow explicit grouped labels such as "Cold / no sale since 2020"
+  // but do not classify promo labels such as "No GKC since 2023".
+  if (group.startsWith('cold ')) return true;
+  if (group.startsWith('pre 2020')) return true;
+
+  return false;
 }
 function isColdBonusEligible(donor) {
   if (!donor) return false;
 
-  // v18.5.1 fix: recognise both the new explicit cold_bonus_eligible field and the older cold_card field.
-  // This is what makes the older imported cold batches and the new researched Northland cold cards show in cold lists and bonus reports.
+  // Reliable sources only:
+  // 1) explicit cold_bonus_eligible=true
+  // 2) explicit Cold/Pre-2020 history-group value
+  // 3) explicit last_any_sale_year <= 2020
   if (isTrueFlag(donor.cold_bonus_eligible)) return true;
-  if (isTrueFlag(donor.cold_card)) return true;
+  if (hasExplicitColdHistoryGroup(donor)) return true;
 
-  const text = getTextForColdCheck(donor);
-  if (text.includes('cold / no sale since 2020')) return true;
-  if (text.includes('no sale since 2020')) return true;
-  if (text.includes('pre-2020') || text.includes('pre 2020')) return true;
-  if (text.includes('cold bonus eligible')) return true;
-  if (text.includes('cold card') || text.includes('cold-card')) return true;
-  if (text.includes('no visible sale history') || text.includes('no useful history') || text.includes('no sale history')) return true;
-
-  const explicitYear = Number(donor.last_any_sale_year || 0);
-  if (explicitYear && explicitYear <= 2020) return true;
+  const explicitYear = getExplicitColdYear(donor);
+  if (explicitYear > 0 && explicitYear <= 2020) return true;
 
   return false;
 }
 function getColdReason(donor) {
-  if (isTrueFlag(donor.cold_bonus_eligible)) return 'cold_bonus_eligible = true';
-  if (isTrueFlag(donor.cold_card)) return 'cold_card = true';
-  const explicitYear = Number(donor.last_any_sale_year || 0);
-  if (explicitYear && explicitYear <= 2020) return 'last sale year ' + explicitYear;
-  const text = getTextForColdCheck(donor);
-  if (text.includes('no sale since 2020')) return 'no sale since 2020';
-  if (text.includes('cold')) return 'cold text/history group';
-  if (text.includes('no visible sale history') || text.includes('no sale history')) return 'no visible sale history';
-  return 'cold/pre-2020 explicit field';
+  if (isTrueFlag(donor.cold_bonus_eligible)) return 'explicit cold bonus eligible';
+  if (hasExplicitColdHistoryGroup(donor)) return 'explicit history group: ' + String(donor.history_group || donor.history_bucket || donor.history_category || '').trim();
+  const explicitYear = getExplicitColdYear(donor);
+  if (explicitYear > 0 && explicitYear <= 2020) return 'explicit last sale year ' + explicitYear;
+  return '';
 }
 function calculateDailyBonus(total) {
   total = Number(total || 0);
@@ -1963,21 +1982,15 @@ function has2122HistoryGroup(donor) {
   return false;
 }
 function hasPre2020OrColdGroup(donor) {
-  const latestYear = getHistoryLatestYear(donor);
-  const explicitYear = Number(donor.last_any_sale_year || 0);
-  if (isColdBonusEligible(donor)) return true;
-  if (historyGroupHas(donor, ['pre 2020', 'pre-2020', '2020 or earlier', 'no sale since 2020'])) return true;
-  if (explicitYear > 0 && explicitYear <= 2020) return true;
-  if (latestYear > 0 && latestYear <= 2020) return true;
-  return false;
+  return isColdBonusEligible(donor);
 }
 function hasColdNoHistoryGroup(donor) {
-  const text = getCombinedText(donor);
-  const latestYear = getHistoryLatestYear(donor);
-  const hasHistory = latestYear > 0 || getHistoryMaxAmount(donor) > 0 || text.includes('history') || text.includes('donated') || text.includes('sponsored');
-  if (historyGroupHas(donor, ['cold', 'no history', 'no useful history', 'no visible sale history', 'no sales history', '0 donations', '$0 only'])) return true;
-  if (isColdBonusEligible(donor) && !hasTapsLastYearGroup(donor) && !hasRecentTapsGroup(donor) && !hasComparativeRecentGroup(donor) && !hasRecentComparativeGroup(donor) && !has2122HistoryGroup(donor)) return true;
-  return !hasHistory;
+  if (!isColdBonusEligible(donor)) return false;
+  return !hasTapsLastYearGroup(donor) &&
+    !hasRecentTapsGroup(donor) &&
+    !hasComparativeRecentGroup(donor) &&
+    !hasRecentComparativeGroup(donor) &&
+    !has2122HistoryGroup(donor);
 }
 function getHistoryGroupDisplay(donor) {
   const group = String(donor.history_group || '').trim();
@@ -2427,7 +2440,7 @@ function getNextSaleNumberLocal() { const used = allDonors.map(d => Number(d.sal
 async function syncSaleCounter(numberValue) { try { await client.from('crm_sale_counter').upsert({ id: 1, last_sale_number: Number(numberValue), updated_at: new Date().toISOString() }); } catch (err) { console.warn('Sale counter sync skipped/failed:', err); } }
 async function updateStatus(id, status) {
   const nowIso = new Date().toISOString(); const today = todayString(); const donor = allDonors.find(item => Number(item.id) === Number(id)) || {}; const updateData = { status: status, last_status_change: nowIso };
-  if (status === 'Closed Sale' || status === 'Personal Donation') { const lockedAmount = getEnteredSaleAmountForStatusUpdate(id, donor); updateData.last_called = nowIso; updateData.sale_date = donor.sale_date || today; updateData.campaign_code = donor.campaign_code || (currentCampaignFilter !== 'all' ? currentCampaignFilter : DEFAULT_CAMPAIGN_CODE); updateData.sale_type = status === 'Personal Donation' ? 'Personal Donation' : (donor.sale_type || 'Business Sale'); addOptionalSaleAmountFields(updateData, donor, lockedAmount); if (isColdBonusEligible(donor)) { if (hasOptionalDonorColumn('cold_bonus_eligible')) updateData.cold_bonus_eligible = true; if (hasOptionalDonorColumn('cold_card')) updateData.cold_card = true; } if (!donor.sale_number) { const nextSaleNumber = getNextSaleNumberLocal(); updateData.sale_number = nextSaleNumber; await syncSaleCounter(nextSaleNumber); } }
+  if (status === 'Closed Sale' || status === 'Personal Donation') { const lockedAmount = getEnteredSaleAmountForStatusUpdate(id, donor); updateData.last_called = nowIso; updateData.sale_date = donor.sale_date || today; updateData.campaign_code = donor.campaign_code || (currentCampaignFilter !== 'all' ? currentCampaignFilter : DEFAULT_CAMPAIGN_CODE); updateData.sale_type = status === 'Personal Donation' ? 'Personal Donation' : (donor.sale_type || 'Business Sale'); addOptionalSaleAmountFields(updateData, donor, lockedAmount); if (isColdBonusEligible(donor) && hasOptionalDonorColumn('cold_bonus_eligible')) updateData.cold_bonus_eligible = true; if (!donor.sale_number) { const nextSaleNumber = getNextSaleNumberLocal(); updateData.sale_number = nextSaleNumber; await syncSaleCounter(nextSaleNumber); } }
   if (status === 'Email Sent') { updateData.email_sent_date = today; updateData.last_called = nowIso; if (!donor.email_followup_stage) updateData.email_followup_stage = 'Email sent - waiting reply'; }
   if (status === 'Check Details' || status === 'Check Number') updateData.check_details_date = today;
   if (status === 'No Answer' || status === 'No Answer 2' || status === 'No Answer 3' || status === 'No Answer - Unblocked ID') updateData.last_called = nowIso;
