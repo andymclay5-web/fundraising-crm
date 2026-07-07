@@ -423,7 +423,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.7.18 strict cold classification</h1>
+<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.7.20 amount edit stays visible</h1>
 <div id="errorBox"></div>
 <div id="warnBox"></div>
 
@@ -1899,6 +1899,31 @@ function applyPinnedContact(data) {
   if (!donor) return data;
   return [donor].concat(data.filter(item => Number(item.id) !== pinnedId));
 }
+
+function applyExpandedEditContact(data) {
+  // v18.7.19: a contact being edited must stay visible through re-filter/re-sort passes.
+  if (!expandedRowEditId) return data;
+  const editId = Number(expandedRowEditId);
+  if (!editId) return data;
+
+  const donor = allDonors.find(item => Number(item.id) === editId);
+  if (!donor) return data;
+
+  const existingIndex = data.findIndex(item => Number(item.id) === editId);
+
+  // If the donor still belongs in the list, keep its natural position and make
+  // sure the render limit is large enough to include it.
+  if (existingIndex >= 0) {
+    if (existingIndex >= currentRenderLimit) {
+      currentRenderLimit = existingIndex + 1;
+    }
+    return data;
+  }
+
+  // If an edit temporarily changes a field used by the active filter/section,
+  // keep the row visible until the edit panel is closed.
+  return [donor].concat(data.filter(item => Number(item.id) !== editId));
+}
 function updateLocalDonor(id, updates) { const donor = allDonors.find(item => Number(item.id) === Number(id)); if (donor) Object.assign(donor, updates); buildDuplicateLookup(); return donor; }
 
 function getCombinedText(donor) { return [donor.business_name, donor.contact_name, donor.sale_contact_name, donor.email, donor.location, donor.notes, donor.phone_notes, donor.sales_history, donor.check_details_reason, donor.local_school_angle, donor.history_group, donor.contactability_status, donor.research_strength, donor.business_category, donor.priority_group, donor.source_photo, donor.verification_status, donor.call_block_reason, donor.phone_qa_status, donor.source_card_qa_status, donor.local_angle_qa_status, donor.cold_card, donor.cold_bonus_eligible].join(' ').toLowerCase(); }
@@ -2069,7 +2094,7 @@ function getFilteredDataRaw() {
   filteredData = applySectionFilter(filteredData);
   return applySortMode(filteredData);
 }
-function getFilteredData() { return applyPinnedContact(getFilteredDataRaw()); }
+function getFilteredData() { return applyPinnedContact(applyExpandedEditContact(getFilteredDataRaw())); }
 
 function getLastCalledDisplay(value) { if (!value) return 'Not called'; const date = new Date(value); if (isNaN(date.getTime())) return formatNzShortDate(value) || String(value).slice(0, 10); return localDateString(value) === todayString() ? date.toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' }) : date.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short' }); }
 function formatNzShortDate(value) { if (!value) return ''; const raw = String(value).trim(); let year, month, day; const dateOnlyMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/); if (dateOnlyMatch) { year = dateOnlyMatch[1]; month = dateOnlyMatch[2]; day = dateOnlyMatch[3]; } else { const date = new Date(raw); if (isNaN(date.getTime())) return raw; year = String(date.getFullYear()); month = String(date.getMonth() + 1).padStart(2, '0'); day = String(date.getDate()).padStart(2, '0'); } return Number(day) + '/' + Number(month) + '/' + year.slice(-2); }
@@ -2229,7 +2254,7 @@ function renderDonors() {
   const hiddenCount = Math.max(0, filteredData.length - visibleData.length);
   const callLogNote = callLogReady ? 'Call logging active.' : 'Call logging not active — run SQL setup for total call attempts/full history.';
   const donorLoadNote = 'Loaded donors: ' + (donorLoadMeta.totalLoaded || allDonors.length) + ' rows across ' + (donorLoadMeta.pages || 1) + ' Supabase page(s).';
-  if (resultsInfo) resultsInfo.innerHTML = '<strong>Showing ' + visibleData.length + ' of ' + filteredData.length + '</strong>' + (hiddenCount > 0 ? ' <button class="load-more-button" onclick="loadMoreRows()">Load next ' + Math.min(RENDER_STEP, hiddenCount) + '</button>' : '') + ' <span class="help-text">' + escapeHtml(donorLoadNote) + ' ' + escapeHtml(callLogNote) + ' Sort: ' + escapeHtml(currentSortMode) + '. Section: ' + escapeHtml(currentSectionMode) + '. Edit/call stays in place. After you record an outcome, that moved row pins at the top until the next moved row replaces it.' + (shouldHideFinishedCampaignsInCurrentView() ? ' Finished campaigns hidden from this active all-campaign working list.' : '') + (pinnedContactId ? ' Green row pinned after outcome/status move: ' + escapeHtml(pinnedContactReason) + ' <button onclick="clearPinnedContact()">Clear pinned row</button>' : '') + '</span>';
+  if (resultsInfo) resultsInfo.innerHTML = '<strong>Showing ' + visibleData.length + ' of ' + filteredData.length + '</strong>' + (hiddenCount > 0 ? ' <button class="load-more-button" onclick="loadMoreRows()">Load next ' + Math.min(RENDER_STEP, hiddenCount) + '</button>' : '') + ' <span class="help-text">' + escapeHtml(donorLoadNote) + ' ' + escapeHtml(callLogNote) + ' Sort: ' + escapeHtml(currentSortMode) + '. Section: ' + escapeHtml(currentSectionMode) + '. Row edit stays visible while open. After you record an outcome, that moved row pins at the top until the next moved row replaces it.' + (shouldHideFinishedCampaignsInCurrentView() ? ' Finished campaigns hidden from this active all-campaign working list.' : '') + (pinnedContactId ? ' Green row pinned after outcome/status move: ' + escapeHtml(pinnedContactReason) + ' <button onclick="clearPinnedContact()">Clear pinned row</button>' : '') + '</span>';
   donorTable.innerHTML = visibleData.map(donor => {
     const statusClass = donor.status ? String(donor.status).toLowerCase().replaceAll(' ', '-') : '';
     const rowClass = (currentCallingId === donor.id ? ' currently-calling' : '') + (Number(pinnedContactId) === Number(donor.id) ? ' recently-touched' : '') + (isGkcActiveHold(donor) ? ' gkc-hold-row' : (isGkcCampaign(donor) && isGkcCallVerified(donor) ? ' gkc-verified-row' : ''));
@@ -2355,13 +2380,26 @@ function toggleInlineEdit(id) {
   const numericId = Number(id);
   if (Number(expandedRowEditId) === numericId) {
     expandedRowEditId = null;
-  } else {
-    expandedRowEditId = numericId;
+    renderDonors();
+    return;
   }
+
+  expandedRowEditId = numericId;
   showDashboard();
   renderDonors();
+
+  // After render, return the user to the exact row/panel they opened.
+  setTimeout(() => {
+    const panel = document.getElementById('inline-row-' + numericId);
+    const row = document.getElementById('row-' + numericId);
+    const target = panel || row;
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 0);
 }
-function cancelInlineEdit() { expandedRowEditId = null; renderDonors(); }
+function cancelInlineEdit() {
+  expandedRowEditId = null;
+  renderDonors();
+}
 async function saveInlineContactChanges(id) {
   const donor = allDonors.find(item => Number(item.id) === Number(id)) || {};
   const coldChecked = inlineChecked(id, 'cold_bonus_eligible');
@@ -2450,7 +2488,45 @@ async function updateStatus(id, status) {
   else { currentCallingId = null; const saved = updateLocalDonor(id, updateData); if (status === 'Closed Sale' || status === 'Personal Donation') clearPendingSaleAmount(id); pinContact(id, 'outcome/status recorded — moved row held at top'); if (saved) fillEditForm(saved); renderDonors(); }
 }
 async function updateCallbackDate(id, callback_date) { const { error } = await client.from('donors').update({ callback_date: callback_date || null }).eq('id', id); if (error) { console.error('Next-action date update failed:', error); alert('Failed to save date: ' + error.message); } else { updateLocalDonor(id, { callback_date: callback_date || null }); } }
-async function updateSuggestedAsk(id, suggested_ask) { cacheSaleAmount(id, suggested_ask); const donor = allDonors.find(item => Number(item.id) === Number(id)) || {}; const amountValue = parseMoneyNumber(suggested_ask); const updateData = { suggested_ask: suggested_ask || null }; if (isClosedSale(donor) && amountValue > 0) addOptionalSaleAmountFields(updateData, donor, amountValue); const { error } = await client.from('donors').update(updateData).eq('id', id); if (error) { console.error('Amount update failed:', error); alert('Failed to save amount: ' + error.message); } else { updateLocalDonor(id, updateData); clearPendingSaleAmount(id); renderDonors(); } }
+async function updateSuggestedAsk(id, suggested_ask) {
+  cacheSaleAmount(id, suggested_ask);
+
+  const donor = allDonors.find(item => Number(item.id) === Number(id)) || {};
+  const amountValue = parseMoneyNumber(suggested_ask);
+  const updateData = { suggested_ask: suggested_ask || null };
+
+  if (isClosedSale(donor) && amountValue > 0) {
+    addOptionalSaleAmountFields(updateData, donor, amountValue);
+  }
+
+  const { error } = await client.from('donors').update(updateData).eq('id', id);
+
+  if (error) {
+    console.error('Amount update failed:', error);
+    alert('Failed to save amount: ' + error.message);
+    return;
+  }
+
+  updateLocalDonor(id, updateData);
+  clearPendingSaleAmount(id);
+
+  // v18.7.20: do not rebuild/re-sort the entire contact table after amount changes.
+  // Ask/value is used by the default and smart-value sorts, so a full re-render
+  // can move the row outside the current render window and make it look deleted.
+  renderBonusStrip();
+  updateTopButtonCounts();
+
+  const input = document.getElementById('sale-amount-' + id);
+  if (input) {
+    input.value = suggested_ask || '';
+    const cell = input.closest('.ask-cell');
+    const savedLabel = cell ? cell.querySelector('.ask-smart, .ask-saved') : null;
+    if (savedLabel) {
+      savedLabel.className = 'ask-saved';
+      savedLabel.textContent = 'saved';
+    }
+  }
+}
 async function updateEmailFollowupStage(id, stage) { const today = todayString(); const donor = allDonors.find(item => Number(item.id) === Number(id)) || {}; const updateData = { email_followup_stage: stage || null }; if (stage === 'Follow-up email sent') updateData.last_email_followup_date = today; const movesToEmail = !!(stage && !isEmailFollowUp(donor)); if (movesToEmail) updateData.status = 'Email Sent'; const { error } = await client.from('donors').update(updateData).eq('id', id); if (error) { console.error('Email follow-up stage update failed:', error); alert('Failed to save email stage. Run the v18 SQL setup first. ' + error.message); } else { updateLocalDonor(id, updateData); if (movesToEmail) pinContact(id, 'moved to Email Follow Up — kept visible'); renderDonors(); } }
 async function updatePclEntered(id, pcl_entered) {
   const donor = allDonors.find(item => Number(item.id) === Number(id)) || {};
