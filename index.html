@@ -423,7 +423,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.7.20 amount edit stays visible</h1>
+<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.7.22 true edit in place</h1>
 <div id="errorBox"></div>
 <div id="warnBox"></div>
 
@@ -651,7 +651,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
         <div class="form-row"><input id="edit_campaign_status" placeholder="Campaign Status: Active / Paused / Closed"></div>
         <div class="form-row"><input id="edit_history_group" placeholder="History group e.g. Cold / no sale since 2020, TAPS, Comparative"></div>
         <div class="form-row"><input id="edit_last_any_sale_year" placeholder="Last Any Sale Year" type="number"></div>
-        <div class="form-row"><input id="edit_last_autism_sale_year" placeholder="Last Autism Sale Year" type="number"></div>
+        <div class="form-row"><input id="edit_last_autism_sale_year" placeholder="Last charity-specific sale year" type="number"></div>
       </div>
     </details>
     <details class="edit-details">
@@ -742,6 +742,7 @@ let currentCallingId = null;
 let pinnedContactId = null;
 let pinnedContactReason = '';
 let expandedRowEditId = null;
+let expandedRowAnchorIndex = null;
 let pendingSaleAmounts = new Map();
 let optionalDonorColumns = {
   sale_amount: false,
@@ -849,6 +850,12 @@ function isGkcCampaign(donor) {
   const code = getCampaignCode(donor);
   const notes = String((donor.notes || '') + ' ' + (donor.phone_notes || '') + ' ' + (donor.sales_history || '')).toLowerCase();
   return code === 'G2607' || code === 'G2614' || code.startsWith('G26') || charity.includes('great kiwi circus') || charity.includes('brain injured') || notes.includes('great kiwi circus') || notes.includes('brain injured children');
+}
+
+function getCharitySpecificLastSaleLabel(donor) {
+  if (isGkcCampaign(donor)) return 'Last GKC sale year';
+  if (isAutismCampaign(donor)) return 'Last Autism sale year';
+  return 'Last charity-specific sale year';
 }
 function hasVerificationField(donor) {
   return donor && Object.prototype.hasOwnProperty.call(donor, 'verified_call_ready');
@@ -1901,28 +1908,33 @@ function applyPinnedContact(data) {
 }
 
 function applyExpandedEditContact(data) {
-  // v18.7.19: a contact being edited must stay visible through re-filter/re-sort passes.
+  // v18.7.22: true edit-in-place anchoring.
+  // While edit is open, the row stays at the exact list index where it was opened.
   if (!expandedRowEditId) return data;
+
   const editId = Number(expandedRowEditId);
   if (!editId) return data;
 
   const donor = allDonors.find(item => Number(item.id) === editId);
   if (!donor) return data;
 
-  const existingIndex = data.findIndex(item => Number(item.id) === editId);
+  const withoutEdited = data.filter(item => Number(item.id) !== editId);
 
-  // If the donor still belongs in the list, keep its natural position and make
-  // sure the render limit is large enough to include it.
-  if (existingIndex >= 0) {
-    if (existingIndex >= currentRenderLimit) {
-      currentRenderLimit = existingIndex + 1;
-    }
-    return data;
+  let anchorIndex = Number(expandedRowAnchorIndex);
+  if (!Number.isFinite(anchorIndex) || anchorIndex < 0) {
+    const naturalIndex = data.findIndex(item => Number(item.id) === editId);
+    anchorIndex = naturalIndex >= 0 ? naturalIndex : 0;
+    expandedRowAnchorIndex = anchorIndex;
   }
 
-  // If an edit temporarily changes a field used by the active filter/section,
-  // keep the row visible until the edit panel is closed.
-  return [donor].concat(data.filter(item => Number(item.id) !== editId));
+  anchorIndex = Math.min(anchorIndex, withoutEdited.length);
+  withoutEdited.splice(anchorIndex, 0, donor);
+
+  if (anchorIndex >= currentRenderLimit) {
+    currentRenderLimit = anchorIndex + 1;
+  }
+
+  return withoutEdited;
 }
 function updateLocalDonor(id, updates) { const donor = allDonors.find(item => Number(item.id) === Number(id)); if (donor) Object.assign(donor, updates); buildDuplicateLookup(); return donor; }
 
@@ -2254,7 +2266,7 @@ function renderDonors() {
   const hiddenCount = Math.max(0, filteredData.length - visibleData.length);
   const callLogNote = callLogReady ? 'Call logging active.' : 'Call logging not active — run SQL setup for total call attempts/full history.';
   const donorLoadNote = 'Loaded donors: ' + (donorLoadMeta.totalLoaded || allDonors.length) + ' rows across ' + (donorLoadMeta.pages || 1) + ' Supabase page(s).';
-  if (resultsInfo) resultsInfo.innerHTML = '<strong>Showing ' + visibleData.length + ' of ' + filteredData.length + '</strong>' + (hiddenCount > 0 ? ' <button class="load-more-button" onclick="loadMoreRows()">Load next ' + Math.min(RENDER_STEP, hiddenCount) + '</button>' : '') + ' <span class="help-text">' + escapeHtml(donorLoadNote) + ' ' + escapeHtml(callLogNote) + ' Sort: ' + escapeHtml(currentSortMode) + '. Section: ' + escapeHtml(currentSectionMode) + '. Row edit stays visible while open. After you record an outcome, that moved row pins at the top until the next moved row replaces it.' + (shouldHideFinishedCampaignsInCurrentView() ? ' Finished campaigns hidden from this active all-campaign working list.' : '') + (pinnedContactId ? ' Green row pinned after outcome/status move: ' + escapeHtml(pinnedContactReason) + ' <button onclick="clearPinnedContact()">Clear pinned row</button>' : '') + '</span>';
+  if (resultsInfo) resultsInfo.innerHTML = '<strong>Showing ' + visibleData.length + ' of ' + filteredData.length + '</strong>' + (hiddenCount > 0 ? ' <button class="load-more-button" onclick="loadMoreRows()">Load next ' + Math.min(RENDER_STEP, hiddenCount) + '</button>' : '') + ' <span class="help-text">' + escapeHtml(donorLoadNote) + ' ' + escapeHtml(callLogNote) + ' Sort: ' + escapeHtml(currentSortMode) + '. Section: ' + escapeHtml(currentSectionMode) + '. Row edit stays fixed exactly where you opened it. Only a real outcome/status move can reposition the row.' + (shouldHideFinishedCampaignsInCurrentView() ? ' Finished campaigns hidden from this active all-campaign working list.' : '') + (pinnedContactId ? ' Green row pinned after outcome/status move: ' + escapeHtml(pinnedContactReason) + ' <button onclick="clearPinnedContact()">Clear pinned row</button>' : '') + '</span>';
   donorTable.innerHTML = visibleData.map(donor => {
     const statusClass = donor.status ? String(donor.status).toLowerCase().replaceAll(' ', '-') : '';
     const rowClass = (currentCallingId === donor.id ? ' currently-calling' : '') + (Number(pinnedContactId) === Number(donor.id) ? ' recently-touched' : '') + (isGkcActiveHold(donor) ? ' gkc-hold-row' : (isGkcCampaign(donor) && isGkcCallVerified(donor) ? ' gkc-verified-row' : ''));
@@ -2359,7 +2371,7 @@ function buildInlineEditRowHtml(donor) {
   html += buildInlineTextarea(id, 'call_block_reason', 'Call block reason', donor.call_block_reason || '', 'inline-span-2');
   html += buildInlineInput(id, 'local_school_angle', 'Local school/community angle', donor.local_school_angle, 'text', 'inline-span-2');
   html += buildInlineInput(id, 'last_any_sale_year', 'Last any sale year', donor.last_any_sale_year, 'number');
-  html += buildInlineInput(id, 'last_autism_sale_year', 'Last Autism sale year', donor.last_autism_sale_year, 'number');
+  html += buildInlineInput(id, 'last_autism_sale_year', getCharitySpecificLastSaleLabel(donor), donor.last_autism_sale_year, 'number');
   html += buildInlineCheckbox(id, 'cold_bonus_eligible', 'Cold/pre-2020 bonus eligible', isColdBonusEligible(donor));
   html += buildInlineCheckbox(id, 'daily_call_list', 'Daily focus list', donor.daily_call_list === true || String(donor.daily_call_list).toLowerCase() === 'true');
   html += buildInlineSelect(id, 'email_followup_stage', 'Email follow-up stage', donor.email_followup_stage || '', emailStages, 'inline-span-2');
@@ -2378,27 +2390,66 @@ function buildInlineEditRowHtml(donor) {
 }
 function toggleInlineEdit(id) {
   const numericId = Number(id);
+
   if (Number(expandedRowEditId) === numericId) {
+    const rowBeforeClose = document.getElementById('row-' + numericId);
+    const oldTop = rowBeforeClose ? rowBeforeClose.getBoundingClientRect().top : null;
+
     expandedRowEditId = null;
+    expandedRowAnchorIndex = null;
     renderDonors();
+
+    if (oldTop !== null) {
+      requestAnimationFrame(() => {
+        const rowAfterClose = document.getElementById('row-' + numericId);
+        if (!rowAfterClose) return;
+        const newTop = rowAfterClose.getBoundingClientRect().top;
+        window.scrollBy(0, newTop - oldTop);
+      });
+    }
     return;
   }
+
+  // Capture the exact list index and viewport position before the edit panel opens.
+  const beforeList = getFilteredDataRaw();
+  const originalIndex = beforeList.findIndex(item => Number(item.id) === numericId);
+  expandedRowAnchorIndex = originalIndex >= 0 ? originalIndex : 0;
+
+  const rowBeforeOpen = document.getElementById('row-' + numericId);
+  const oldTop = rowBeforeOpen ? rowBeforeOpen.getBoundingClientRect().top : null;
 
   expandedRowEditId = numericId;
   showDashboard();
   renderDonors();
 
-  // After render, return the user to the exact row/panel they opened.
-  setTimeout(() => {
-    const panel = document.getElementById('inline-row-' + numericId);
-    const row = document.getElementById('row-' + numericId);
-    const target = panel || row;
-    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, 0);
+  // Keep the clicked contact at the same place on screen.
+  // Do not scroll to the edit panel: a tall panel can drag the page to the bottom.
+  if (oldTop !== null) {
+    requestAnimationFrame(() => {
+      const rowAfterOpen = document.getElementById('row-' + numericId);
+      if (!rowAfterOpen) return;
+      const newTop = rowAfterOpen.getBoundingClientRect().top;
+      window.scrollBy(0, newTop - oldTop);
+    });
+  }
 }
 function cancelInlineEdit() {
+  const numericId = Number(expandedRowEditId);
+  const rowBeforeClose = numericId ? document.getElementById('row-' + numericId) : null;
+  const oldTop = rowBeforeClose ? rowBeforeClose.getBoundingClientRect().top : null;
+
   expandedRowEditId = null;
+  expandedRowAnchorIndex = null;
   renderDonors();
+
+  if (numericId && oldTop !== null) {
+    requestAnimationFrame(() => {
+      const rowAfterClose = document.getElementById('row-' + numericId);
+      if (!rowAfterClose) return;
+      const newTop = rowAfterClose.getBoundingClientRect().top;
+      window.scrollBy(0, newTop - oldTop);
+    });
+  }
 }
 async function saveInlineContactChanges(id) {
   const donor = allDonors.find(item => Number(item.id) === Number(id)) || {};
@@ -2407,7 +2458,7 @@ async function saveInlineContactChanges(id) {
   const saleTypeValue = personalChecked ? 'Personal Donation' : inlineValue(id, 'sale_type');
   const historyGroupValue = inlineValue(id, 'history_group') || (coldChecked ? 'Cold / no sale since 2020' : '');
   const lastAnySaleYearValue = inlineValue(id, 'last_any_sale_year') || (coldChecked ? '2020' : '');
-  const lastAutismSaleYearValue = inlineValue(id, 'last_autism_sale_year') || (coldChecked ? '2020' : '');
+  const lastAutismSaleYearValue = inlineValue(id, 'last_autism_sale_year') || '';
   const updateData = {
     card_id: inlineValue(id, 'card_id'),
     business_name: inlineValue(id, 'business_name'),
@@ -2466,6 +2517,7 @@ async function deleteContactFromRow(id) {
   const { error } = await client.from('donors').delete().eq('id', id);
   if (error) { console.error('Delete contact failed:', error); alert('Delete failed: ' + error.message); return; }
   expandedRowEditId = null;
+  expandedRowAnchorIndex = null;
   await loadDonors();
 }
 
@@ -2473,7 +2525,7 @@ async function logCallAttempt(donor, number, numberType) { currentCallingId = do
 async function callNumberFromField(id, fieldName) { const donor = allDonors.find(item => item.id === id); const number = donor ? donor[fieldName] : ''; const label = fieldName === 'mobile' ? 'mobile' : 'office_phone'; await callNumber(number, donor, label); }
 async function callNumber(number, donor, numberType) { if (!number || !donor) { alert('No number on this contact. Use the card ID in PCL, then update details or delete if the ID is wrong.'); return; } await logCallAttempt(donor, number, numberType); window.location.href = 'tel:' + number; }
 async function quickOutcome(id, outcome) { const donor = allDonors.find(item => Number(item.id) === Number(id)); if (outcome === 'No Answer') { const stage = donor ? getNoAnswerStage(donor) : 0; if (stage <= 0) return updateStatus(id, 'No Answer'); if (stage === 1) return markNoAnswerStage(id, 2); if (stage === 2) return markNoAnswerStage(id, 3); return markNoAnswerStage(id, 4); } return updateStatus(id, outcome); }
-async function markNoAnswerStage(id, stage) { const nowIso = new Date().toISOString(); const newStatus = getNoAnswerStatusForStage(stage); const updateData = { status: newStatus, last_status_change: nowIso, last_called: nowIso }; const { error } = await client.from('donors').update(updateData).eq('id', id); if (error) { console.error('No answer stage update failed:', error); alert('Failed to update no-answer stage: ' + (error.message || 'Unknown error')); return; } updateLocalDonor(id, updateData); currentCallingId = null; pinContact(id, 'no-answer outcome recorded — moved row held at top'); renderDonors(); }
+async function markNoAnswerStage(id, stage) { const nowIso = new Date().toISOString(); const newStatus = getNoAnswerStatusForStage(stage); const updateData = { status: newStatus, last_status_change: nowIso, last_called: nowIso }; const { error } = await client.from('donors').update(updateData).eq('id', id); if (error) { console.error('No answer stage update failed:', error); alert('Failed to update no-answer stage: ' + (error.message || 'Unknown error')); return; } updateLocalDonor(id, updateData); currentCallingId = null; expandedRowEditId = null; expandedRowAnchorIndex = null; pinContact(id, 'no-answer outcome recorded — moved row held at top'); renderDonors(); }
 function getNextSaleNumberLocal() { const used = allDonors.map(d => Number(d.sale_number || 0)).filter(n => Number.isFinite(n) && n > 0); return (used.length ? Math.max(...used) : 0) + 1; }
 async function syncSaleCounter(numberValue) { try { await client.from('crm_sale_counter').upsert({ id: 1, last_sale_number: Number(numberValue), updated_at: new Date().toISOString() }); } catch (err) { console.warn('Sale counter sync skipped/failed:', err); } }
 async function updateStatus(id, status) {
@@ -2485,7 +2537,7 @@ async function updateStatus(id, status) {
   if (status === 'Callback Requested' || status === 'Will Call Me' || status === 'Not Interested' || status === 'No' || status === 'Check Number' || status === 'Put Aside') updateData.last_called = nowIso;
   const { error } = await client.from('donors').update(updateData).eq('id', id);
   if (error) { console.error('Status update failed:', error); alert('Failed to save status: ' + error.message); }
-  else { currentCallingId = null; const saved = updateLocalDonor(id, updateData); if (status === 'Closed Sale' || status === 'Personal Donation') clearPendingSaleAmount(id); pinContact(id, 'outcome/status recorded — moved row held at top'); if (saved) fillEditForm(saved); renderDonors(); }
+  else { currentCallingId = null; const saved = updateLocalDonor(id, updateData); if (status === 'Closed Sale' || status === 'Personal Donation') clearPendingSaleAmount(id); expandedRowEditId = null; expandedRowAnchorIndex = null; pinContact(id, 'outcome/status recorded — moved row held at top'); if (saved) fillEditForm(saved); renderDonors(); }
 }
 async function updateCallbackDate(id, callback_date) { const { error } = await client.from('donors').update({ callback_date: callback_date || null }).eq('id', id); if (error) { console.error('Next-action date update failed:', error); alert('Failed to save date: ' + error.message); } else { updateLocalDonor(id, { callback_date: callback_date || null }); } }
 async function updateSuggestedAsk(id, suggested_ask) {
@@ -2539,7 +2591,7 @@ async function updatePclEntered(id, pcl_entered) {
 }
 function loadThisContact(id) { const donor = allDonors.find(item => Number(item.id) === Number(id)); if (!donor) { alert('Contact not found'); return; } toggleInlineEdit(id); }
 function fillEditForm(donor) {
-  document.getElementById('edit_id').value = donor.id || ''; document.getElementById('edit_card_id').value = donor.card_id || ''; document.getElementById('edit_business_name').value = donor.business_name || ''; document.getElementById('edit_contact_name').value = donor.contact_name || ''; document.getElementById('edit_sale_contact_name').value = donor.sale_contact_name || ''; document.getElementById('edit_mobile').value = donor.mobile || ''; document.getElementById('edit_office_phone').value = donor.office_phone || ''; document.getElementById('edit_email').value = donor.email || ''; document.getElementById('edit_email_followup_stage').value = donor.email_followup_stage || ''; document.getElementById('edit_last_email_followup_date').value = donor.last_email_followup_date || ''; document.getElementById('edit_email_followup_note').value = donor.email_followup_note || ''; document.getElementById('edit_local_school_angle').value = donor.local_school_angle || ''; document.getElementById('edit_history_group').value = donor.history_group || ''; document.getElementById('edit_contactability_status').value = donor.contactability_status || ''; document.getElementById('edit_research_strength').value = donor.research_strength || ''; document.getElementById('edit_business_category').value = donor.business_category || ''; document.getElementById('edit_daily_call_list').checked = donor.daily_call_list === true || String(donor.daily_call_list).toLowerCase() === 'true'; document.getElementById('edit_location').value = donor.location || ''; document.getElementById('edit_amount').value = donor.suggested_ask || getAskAmount(donor) || ''; document.getElementById('edit_sale_number').value = donor.sale_number || ''; document.getElementById('edit_sale_type').value = donor.sale_type || ''; document.getElementById('edit_personal_donor').checked = donor.sale_type === 'Personal Donation' || normaliseStatus(donor.status) === 'personal donation'; document.getElementById('edit_cold_bonus_eligible').checked = isColdBonusEligible(donor); document.getElementById('edit_charity_name').value = donor.charity_name || DEFAULT_CHARITY_NAME; document.getElementById('edit_campaign_code').value = donor.campaign_code || DEFAULT_CAMPAIGN_CODE; document.getElementById('edit_campaign_area').value = donor.campaign_area || ''; document.getElementById('edit_campaign_year').value = donor.campaign_year || DEFAULT_CAMPAIGN_YEAR; document.getElementById('edit_campaign_status').value = donor.campaign_status || 'Active'; document.getElementById('edit_last_any_sale_year').value = donor.last_any_sale_year || ''; document.getElementById('edit_last_autism_sale_year').value = donor.last_autism_sale_year || ''; document.getElementById('edit_last_called_display').value = getLastCalledDisplay(getLastCallTimeValue(donor)); document.getElementById('edit_pcl_entered').checked = donor.pcl_entered === true; document.getElementById('edit_check_details_reason').value = donor.check_details_reason || ''; document.getElementById('edit_sales_history').value = donor.sales_history || ''; document.getElementById('edit_call_history').value = getCallHistoryText(donor); document.getElementById('edit_duplicate_warning').value = getDuplicateWarningText(donor); document.getElementById('edit_phone_notes').value = donor.phone_notes || ''; document.getElementById('edit_notes').value = donor.notes || '';
+  document.getElementById('edit_id').value = donor.id || ''; document.getElementById('edit_card_id').value = donor.card_id || ''; document.getElementById('edit_business_name').value = donor.business_name || ''; document.getElementById('edit_contact_name').value = donor.contact_name || ''; document.getElementById('edit_sale_contact_name').value = donor.sale_contact_name || ''; document.getElementById('edit_mobile').value = donor.mobile || ''; document.getElementById('edit_office_phone').value = donor.office_phone || ''; document.getElementById('edit_email').value = donor.email || ''; document.getElementById('edit_email_followup_stage').value = donor.email_followup_stage || ''; document.getElementById('edit_last_email_followup_date').value = donor.last_email_followup_date || ''; document.getElementById('edit_email_followup_note').value = donor.email_followup_note || ''; document.getElementById('edit_local_school_angle').value = donor.local_school_angle || ''; document.getElementById('edit_history_group').value = donor.history_group || ''; document.getElementById('edit_contactability_status').value = donor.contactability_status || ''; document.getElementById('edit_research_strength').value = donor.research_strength || ''; document.getElementById('edit_business_category').value = donor.business_category || ''; document.getElementById('edit_daily_call_list').checked = donor.daily_call_list === true || String(donor.daily_call_list).toLowerCase() === 'true'; document.getElementById('edit_location').value = donor.location || ''; document.getElementById('edit_amount').value = donor.suggested_ask || getAskAmount(donor) || ''; document.getElementById('edit_sale_number').value = donor.sale_number || ''; document.getElementById('edit_sale_type').value = donor.sale_type || ''; document.getElementById('edit_personal_donor').checked = donor.sale_type === 'Personal Donation' || normaliseStatus(donor.status) === 'personal donation'; document.getElementById('edit_cold_bonus_eligible').checked = isColdBonusEligible(donor); document.getElementById('edit_charity_name').value = donor.charity_name || DEFAULT_CHARITY_NAME; document.getElementById('edit_campaign_code').value = donor.campaign_code || DEFAULT_CAMPAIGN_CODE; document.getElementById('edit_campaign_area').value = donor.campaign_area || ''; document.getElementById('edit_campaign_year').value = donor.campaign_year || DEFAULT_CAMPAIGN_YEAR; document.getElementById('edit_campaign_status').value = donor.campaign_status || 'Active'; document.getElementById('edit_last_any_sale_year').value = donor.last_any_sale_year || ''; document.getElementById('edit_last_autism_sale_year').value = donor.last_autism_sale_year || ''; document.getElementById('edit_last_autism_sale_year').placeholder = getCharitySpecificLastSaleLabel(donor); document.getElementById('edit_last_called_display').value = getLastCalledDisplay(getLastCallTimeValue(donor)); document.getElementById('edit_pcl_entered').checked = donor.pcl_entered === true; document.getElementById('edit_check_details_reason').value = donor.check_details_reason || ''; document.getElementById('edit_sales_history').value = donor.sales_history || ''; document.getElementById('edit_call_history').value = getCallHistoryText(donor); document.getElementById('edit_duplicate_warning').value = getDuplicateWarningText(donor); document.getElementById('edit_phone_notes').value = donor.phone_notes || ''; document.getElementById('edit_notes').value = donor.notes || '';
 }
 function clearEditForm() { ['edit_id','edit_lookup','edit_card_id','edit_business_name','edit_contact_name','edit_sale_contact_name','edit_mobile','edit_office_phone','edit_email','edit_email_followup_stage','edit_last_email_followup_date','edit_email_followup_note','edit_local_school_angle','edit_history_group','edit_contactability_status','edit_research_strength','edit_business_category','edit_location','edit_amount','edit_sale_number','edit_sale_type','edit_charity_name','edit_campaign_code','edit_campaign_area','edit_campaign_year','edit_campaign_status','edit_last_any_sale_year','edit_last_autism_sale_year','edit_last_called_display','edit_check_details_reason','edit_sales_history','edit_call_history','edit_duplicate_warning','edit_phone_notes','edit_notes'].forEach(id => document.getElementById(id).value = ''); document.getElementById('edit_personal_donor').checked = false; document.getElementById('edit_cold_bonus_eligible').checked = false; document.getElementById('edit_pcl_entered').checked = false; document.getElementById('edit_daily_call_list').checked = false; }
 function loadContactForEdit() { const lookupRaw = document.getElementById('edit_lookup').value.trim(); const lookup = lookupRaw.toLowerCase(); const lookupDigits = lookupRaw.replace(/\D/g, ''); if (!lookup) { alert('Enter an ID, phone number, or business name'); return; } const donor = allDonors.find(item => String(item.card_id || '').toLowerCase() === lookup || String(item.business_name || '').toLowerCase().includes(lookup) || String(item.contact_name || '').toLowerCase().includes(lookup) || String(item.sale_contact_name || '').toLowerCase().includes(lookup) || (lookupDigits && String(item.mobile || '').replace(/\D/g, '').includes(lookupDigits)) || (lookupDigits && String(item.office_phone || '').replace(/\D/g, '').includes(lookupDigits)) || String(item.email || '').toLowerCase().includes(lookup) || String(item.notes || '').toLowerCase().includes(lookup) || String(item.phone_notes || '').toLowerCase().includes(lookup)); if (!donor) { alert('No matching contact found'); return; } fillEditForm(donor); }
@@ -2548,7 +2600,7 @@ async function saveContactChanges() {
   const coldChecked = document.getElementById('edit_cold_bonus_eligible').checked;
   const historyGroupValue = document.getElementById('edit_history_group').value || (coldChecked ? 'Cold / no sale since 2020' : '');
   const lastAnySaleYearValue = document.getElementById('edit_last_any_sale_year').value || (coldChecked ? '2020' : '');
-  const lastAutismSaleYearValue = document.getElementById('edit_last_autism_sale_year').value || (coldChecked ? '2020' : '');
+  const lastAutismSaleYearValue = document.getElementById('edit_last_autism_sale_year').value || '';
   const personalChecked = document.getElementById('edit_personal_donor').checked;
   const saleTypeValue = personalChecked ? 'Personal Donation' : document.getElementById('edit_sale_type').value;
   const updateData = { card_id: document.getElementById('edit_card_id').value, business_name: document.getElementById('edit_business_name').value, contact_name: document.getElementById('edit_contact_name').value, sale_contact_name: document.getElementById('edit_sale_contact_name').value, mobile: document.getElementById('edit_mobile').value, office_phone: document.getElementById('edit_office_phone').value, email: document.getElementById('edit_email').value, email_followup_stage: document.getElementById('edit_email_followup_stage').value || null, last_email_followup_date: document.getElementById('edit_last_email_followup_date').value || null, email_followup_note: document.getElementById('edit_email_followup_note').value, local_school_angle: document.getElementById('edit_local_school_angle').value, history_group: historyGroupValue, contactability_status: document.getElementById('edit_contactability_status').value, research_strength: document.getElementById('edit_research_strength').value, business_category: document.getElementById('edit_business_category').value, daily_call_list: document.getElementById('edit_daily_call_list').checked, location: document.getElementById('edit_location').value, suggested_ask: document.getElementById('edit_amount').value || null, sale_number: document.getElementById('edit_sale_number').value || null, sale_type: saleTypeValue, charity_name: document.getElementById('edit_charity_name').value || DEFAULT_CHARITY_NAME, campaign_code: document.getElementById('edit_campaign_code').value || DEFAULT_CAMPAIGN_CODE, campaign_area: document.getElementById('edit_campaign_area').value, campaign_year: document.getElementById('edit_campaign_year').value || DEFAULT_CAMPAIGN_YEAR, campaign_status: document.getElementById('edit_campaign_status').value || 'Active', last_any_sale_year: lastAnySaleYearValue || null, last_autism_sale_year: lastAutismSaleYearValue || null, sales_history: document.getElementById('edit_sales_history').value, check_details_reason: document.getElementById('edit_check_details_reason').value, notes: document.getElementById('edit_notes').value, pcl_entered: document.getElementById('edit_pcl_entered').checked };
@@ -2568,7 +2620,7 @@ async function addDonor() {
   const coldChecked = document.getElementById('add_cold_bonus_eligible').checked;
   const notesValue = document.getElementById('notes').value || 'ID visible / entered. Details may need PCL lookup. If ID is wrong or belongs to another business, delete this contact.';
   const addHistoryGroup = document.getElementById('add_history_group') ? document.getElementById('add_history_group').value : '';
-  const insertData = { card_id: cardId, business_name: document.getElementById('business_name').value, contact_name: document.getElementById('contact_name').value, mobile: document.getElementById('phone').value, office_phone: document.getElementById('office_phone').value, email: document.getElementById('email').value, location: document.getElementById('location').value, status: document.getElementById('status').value || 'Not Called', notes: notesValue, charity_name: document.getElementById('charity_name').value || DEFAULT_CHARITY_NAME, campaign_code: campaignCode, campaign_area: document.getElementById('campaign_area').value, campaign_year: document.getElementById('campaign_year').value || DEFAULT_CAMPAIGN_YEAR, campaign_status: 'Active', pcl_entered: false, sales_history: '', history_group: addHistoryGroup || (coldChecked ? 'Cold / no sale since 2020' : ''), last_any_sale_year: coldChecked ? 2020 : null, last_autism_sale_year: coldChecked ? 2020 : null };
+  const insertData = { card_id: cardId, business_name: document.getElementById('business_name').value, contact_name: document.getElementById('contact_name').value, mobile: document.getElementById('phone').value, office_phone: document.getElementById('office_phone').value, email: document.getElementById('email').value, location: document.getElementById('location').value, status: document.getElementById('status').value || 'Not Called', notes: notesValue, charity_name: document.getElementById('charity_name').value || DEFAULT_CHARITY_NAME, campaign_code: campaignCode, campaign_area: document.getElementById('campaign_area').value, campaign_year: document.getElementById('campaign_year').value || DEFAULT_CAMPAIGN_YEAR, campaign_status: 'Active', pcl_entered: false, sales_history: '', history_group: addHistoryGroup || (coldChecked ? 'Cold / no sale since 2020' : ''), last_any_sale_year: coldChecked ? 2020 : null, last_autism_sale_year: null };
   if (hasOptionalDonorColumn('cold_bonus_eligible')) insertData.cold_bonus_eligible = coldChecked;
   if (hasOptionalDonorColumn('cold_card')) insertData.cold_card = coldChecked;
   const { error } = await client.from('donors').insert([insertData]);
