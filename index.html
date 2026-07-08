@@ -420,10 +420,66 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
   color: #145c2b;
 }
 
+
+/* v18.7.23 working-list scope + motivation totals */
+.motivation-strip {
+  display: block;
+  margin: 6px 0 8px;
+}
+.motivation-panel {
+  border: 1px solid #8bc18b;
+  background: #f6fff4;
+  border-radius: 7px;
+  padding: 7px 9px;
+  overflow: visible;
+}
+.motivation-head {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.motivation-kpi {
+  border: 1px solid #cfe8cb;
+  background: #fff;
+  border-radius: 5px;
+  padding: 5px 7px;
+  font-size: 11px;
+  line-height: 1.25;
+}
+.motivation-kpi strong {
+  display: block;
+  font-size: 11px;
+  margin-bottom: 2px;
+}
+.motivation-kpi .big {
+  display: block;
+  font-size: 17px;
+  font-weight: 800;
+  color: #145c2b;
+}
+.history-category-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.history-category-chip {
+  display: inline-block;
+  border: 1px solid #b7d8b1;
+  background: #fff;
+  border-radius: 999px;
+  padding: 3px 7px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .motivation-head { grid-template-columns: 1fr; }
+}
+
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.7.22 true edit in place</h1>
+<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.7.23 G2607 history scope + motivation totals + true edit in place</h1>
 <div id="errorBox"></div>
 <div id="warnBox"></div>
 
@@ -441,6 +497,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </div>
 
 <div id="bonusStrip" class="bonus-strip"></div>
+<div id="motivationStrip" class="motivation-strip"></div>
 
 <div id="campaignSettingsBox" class="form-box campaign-settings-panel">
   <div class="form-panel-header">
@@ -522,6 +579,13 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
       <option value="businessName">Business name</option>
     </select>
   </label>
+  <label>Cold cards in working lists
+    <select id="coldListMode" onchange="setColdListMode(this.value)">
+      <option value="exclude" selected>Exclude Cold / Pre-2020</option>
+      <option value="include">Include cold + history</option>
+      <option value="only">Cold / Pre-2020 only</option>
+    </select>
+  </label>
   <label>View section
     <select id="sectionMode" onchange="setSectionMode(this.value)">
       <option value="all">All sections</option>
@@ -566,8 +630,8 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
     <div class="form-row"><input id="office_phone" placeholder="Main Number"></div>
     <div class="form-row"><input id="email" placeholder="Email"></div>
     <div class="form-row"><input id="location" placeholder="Location"></div>
-    <div class="form-row"><input id="charity_name" placeholder="Charity e.g. Autism NZ" value="Autism NZ"></div>
-    <div class="form-row"><input id="campaign_code" placeholder="Campaign Code" value="1A2601"></div>
+    <div class="form-row"><input id="charity_name" placeholder="Charity" value="Great Kiwi Circus / Brain Injured Children&#39;s Trust"></div>
+    <div class="form-row"><input id="campaign_code" placeholder="Campaign Code" value="G2607"></div>
     <div class="form-row"><input id="campaign_area" placeholder="Campaign Area / Region"></div>
     <div class="form-row"><input id="campaign_year" placeholder="Campaign Year" type="number" value="2026"></div>
     <div class="form-row"><label><input type="checkbox" id="add_cold_bonus_eligible"> Cold / pre-2020 / no sale since 2020</label></div>
@@ -702,8 +766,8 @@ const SUPABASE_URL = "https://ldkxgkigfbviyxlspxrl.supabase.co";
 const SUPABASE_KEY = "sb_publishable_pB56X40VIChc1BETXrxrSg_EsOLb1L6";
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const DEFAULT_CAMPAIGN_CODE = '1A2601';
-const DEFAULT_CHARITY_NAME = 'Autism NZ';
+const DEFAULT_CAMPAIGN_CODE = 'G2607';
+const DEFAULT_CHARITY_NAME = 'Great Kiwi Circus / Brain Injured Children\'s Trust';
 const DEFAULT_CAMPAIGN_YEAR = 2026;
 const PAY_CYCLE_START = '2026-06-08';
 const AUTISM_TICKET_AMOUNT = 65;
@@ -726,9 +790,10 @@ const CAMPAIGN_TARGETS = {
 const CAMPAIGN_SETTINGS_STORAGE_KEY = 'fundraising_crm_campaign_settings_v18_6';
 
 let currentFilter = 'callQueue';
-let currentCampaignFilter = 'all';
+let currentCampaignFilter = 'G2607';
 let currentSortMode = 'default';
 let currentSectionMode = 'all';
+let currentColdListMode = 'exclude';
 let includeFinishedCampaigns = false;
 let formsOpen = false;
 let allDonors = [];
@@ -1499,7 +1564,88 @@ function buildBonusSummaryHtml(data, startDate, endDate) {
     buildCompactCampaignSummaryCard(scoped);
 }
 
-function renderBonusStrip() { const box = document.getElementById('bonusStrip'); if (box) box.innerHTML = buildBonusSummaryHtml(getDashboardScopeData(), todayString(), todayString()); }
+
+function getHistoryCategoryLabel(donor) {
+  const raw = String(donor.history_group || '').trim();
+  if (!raw) return 'Unclassified';
+  const normal = raw.toLowerCase();
+  if (normal.includes('recent taps')) return 'Recent TAPS';
+  if (normal === 'taps' || normal.includes('last year')) return 'TAPS';
+  if (normal.includes('recent comparative')) return 'Recent Comparative';
+  if (normal.includes('comparative')) return 'Comparative';
+  if (normal.includes('21-22') || normal.includes('21–22')) return '21-22';
+  if (normal.includes('pre-2020') || normal.includes('pre 2020')) return 'Pre-2020';
+  if (normal.includes('cold')) return 'Cold';
+  if (normal.includes('history check')) return 'Needs History Check';
+  return raw;
+}
+function buildHistoryCategoryChips(rows) {
+  const groups = new Map();
+  Array.from(rows || []).forEach(donor => {
+    const label = getHistoryCategoryLabel(donor);
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(donor);
+  });
+  const preferred = ['TAPS','Recent TAPS','Comparative','Recent Comparative','21-22','Pre-2020','Cold','Needs History Check','Unclassified'];
+  const labels = Array.from(groups.keys()).sort((a,b) => {
+    const ai = preferred.indexOf(a);
+    const bi = preferred.indexOf(b);
+    if (ai >= 0 || bi >= 0) return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
+    return a.localeCompare(b);
+  });
+  return labels.map(label => {
+    const m = getComparisonMetrics(groups.get(label));
+    return '<span class="history-category-chip" title="' +
+      escapeHtml(label + ': rows ' + m.count + ', history ' + formatMoney(m.historyTotal) + ', asks ' + formatMoney(m.askTotal) + ', lift ' + formatMoney(m.lift)) +
+      '"><strong>' + escapeHtml(label) + '</strong> ' + m.count +
+      ' · hist ' + formatMoney(m.historyTotal) +
+      ' · ask ' + formatMoney(m.askTotal) +
+      '</span>';
+  }).join('');
+}
+function buildMotivationSummaryHtml() {
+  let campaignRows = applyCampaignFilter(Array.from(allDonors || []));
+  campaignRows = applyFinishedCampaignVisibilityForFilter(campaignRows, 'callQueue');
+
+  const campaignMetrics = getComparisonMetrics(campaignRows);
+  const currentListRows = getFilteredDataRaw();
+  const currentListMetrics = getComparisonMetrics(currentListRows);
+  const categoryChips = buildHistoryCategoryChips(campaignRows);
+
+  const campaignLabel = currentCampaignFilter === 'all'
+    ? 'Active campaigns'
+    : currentCampaignFilter + ' campaign';
+
+  return '<div class="motivation-panel">' +
+    '<div class="motivation-head">' +
+      '<div class="motivation-kpi"><strong>' + escapeHtml(campaignLabel) + '</strong>' +
+        '<span class="big">' + formatMoney(campaignMetrics.askTotal) + ' suggested</span>' +
+        campaignMetrics.count + ' active cards · history ' + formatMoney(campaignMetrics.historyTotal) +
+        ' · lift ' + (campaignMetrics.lift >= 0 ? '+' : '') + formatMoney(campaignMetrics.lift) +
+      '</div>' +
+      '<div class="motivation-kpi"><strong>' + escapeHtml(getFilterLabel(currentFilter)) + '</strong>' +
+        '<span class="big">' + formatMoney(currentListMetrics.askTotal) + ' suggested</span>' +
+        currentListMetrics.count + ' cards · history ' + formatMoney(currentListMetrics.historyTotal) +
+        ' · lift ' + (currentListMetrics.lift >= 0 ? '+' : '') + formatMoney(currentListMetrics.lift) +
+      '</div>' +
+      '<div class="motivation-kpi"><strong>Working scope</strong>' +
+        '<span class="big">' + escapeHtml(getColdListModeLabel()) + '</span>' +
+        'Section: ' + escapeHtml(currentSectionMode) + ' · Sort: ' + escapeHtml(currentSortMode) +
+      '</div>' +
+    '</div>' +
+    '<div class="history-category-row">' + categoryChips + '</div>' +
+  '</div>';
+}
+function renderMotivationStrip() {
+  const box = document.getElementById('motivationStrip');
+  if (box) box.innerHTML = buildMotivationSummaryHtml();
+}
+
+function renderBonusStrip() {
+  const box = document.getElementById('bonusStrip');
+  if (box) box.innerHTML = buildBonusSummaryHtml(getDashboardScopeData(), todayString(), todayString());
+  renderMotivationStrip();
+}
 function getTicketPitchForAmount(amount, donor) { const ticket = getTicketAmount(donor) || AUTISM_TICKET_AMOUNT; const kids = Math.max(1, Math.round(Number(amount || 0) / ticket)); return kids + ' kids × $' + ticket + ' = $' + (kids * ticket); }
 function ticketGroupAmount(donor, baseAmount) { const ticket = getTicketAmount(donor) || AUTISM_TICKET_AMOUNT; const n = Number(baseAmount || 0); if (n >= ticket * 9) return ticket * 10; if (n >= ticket * 5.5) return ticket * 6; if (n >= ticket * 4.5) return ticket * 5; if (n >= ticket * 3.5) return ticket * 4; return ticket * 3; }
 
@@ -1524,6 +1670,29 @@ function setCampaignFilter(value) {
 }
 function setSortMode(value) { currentSortMode = value || 'default'; resetRenderLimit(); showDashboard(); renderDonors(); }
 function setSectionMode(value) { currentSectionMode = value || 'all'; resetRenderLimit(); showDashboard(); renderDonors(); }
+function getColdListModeLabel() {
+  if (currentColdListMode === 'include') return 'Include cold + history';
+  if (currentColdListMode === 'only') return 'Cold / Pre-2020 only';
+  return 'History priority — cold excluded';
+}
+function coldModeAppliesToFilter(filterName) {
+  return ['callQueue','gkcVerified','callbacks','willCallMe','noCards','noAnswer','noAnswerUnblocked','alreadyCalled'].includes(filterName);
+}
+function applyColdListMode(data, filterName) {
+  const rows = Array.from(data || []);
+  if (!coldModeAppliesToFilter(filterName)) return rows;
+  if (currentColdListMode === 'include') return rows;
+  if (currentColdListMode === 'only') return rows.filter(isColdBonusEligible);
+  return rows.filter(donor => !isColdBonusEligible(donor));
+}
+function setColdListMode(value) {
+  currentColdListMode = value || 'exclude';
+  const select = document.getElementById('coldListMode');
+  if (select && select.value !== currentColdListMode) select.value = currentColdListMode;
+  resetRenderLimit();
+  showDashboard();
+  renderDonors();
+}
 function createDailyCallListFromInputs() { currentSortMode = document.getElementById('sortMode').value || 'balancedDaily'; currentSectionMode = document.getElementById('sectionMode').value || 'all'; const requested = Number(document.getElementById('dailyListSize').value || 40); currentRenderLimit = Math.max(5, Math.min(300, requested)); showDashboard(); renderDonors(); }
 function backToCallQueue() { setFilter('callQueue'); }
 function resetRenderLimit() { currentRenderLimit = INITIAL_RENDER_LIMIT; }
@@ -1739,6 +1908,7 @@ function getListCountForFilter(filterName) {
   rows = applyCampaignFilter(rows);
   rows = applyFinishedCampaignVisibilityForFilter(rows, filterName);
   rows = applyListFilterForCount(rows, filterName);
+  rows = applyColdListMode(rows, filterName);
   rows = applySectionFilter(rows);
   return rows.length;
 }
@@ -2103,6 +2273,7 @@ function getFilteredDataRaw() {
   else if (currentFilter === 'checkDetails') filteredData = filteredData.filter(donor => isCheckDetails(donor));
   else if (currentFilter === 'checkNumber') filteredData = filteredData.filter(donor => isCheckNumber(donor));
   else if (currentFilter === 'closedSales') filteredData = filteredData.filter(donor => isClosedSale(donor) && donor.pcl_entered !== true);
+  filteredData = applyColdListMode(filteredData, currentFilter);
   filteredData = applySectionFilter(filteredData);
   return applySortMode(filteredData);
 }
@@ -2266,7 +2437,7 @@ function renderDonors() {
   const hiddenCount = Math.max(0, filteredData.length - visibleData.length);
   const callLogNote = callLogReady ? 'Call logging active.' : 'Call logging not active — run SQL setup for total call attempts/full history.';
   const donorLoadNote = 'Loaded donors: ' + (donorLoadMeta.totalLoaded || allDonors.length) + ' rows across ' + (donorLoadMeta.pages || 1) + ' Supabase page(s).';
-  if (resultsInfo) resultsInfo.innerHTML = '<strong>Showing ' + visibleData.length + ' of ' + filteredData.length + '</strong>' + (hiddenCount > 0 ? ' <button class="load-more-button" onclick="loadMoreRows()">Load next ' + Math.min(RENDER_STEP, hiddenCount) + '</button>' : '') + ' <span class="help-text">' + escapeHtml(donorLoadNote) + ' ' + escapeHtml(callLogNote) + ' Sort: ' + escapeHtml(currentSortMode) + '. Section: ' + escapeHtml(currentSectionMode) + '. Row edit stays fixed exactly where you opened it. Only a real outcome/status move can reposition the row.' + (shouldHideFinishedCampaignsInCurrentView() ? ' Finished campaigns hidden from this active all-campaign working list.' : '') + (pinnedContactId ? ' Green row pinned after outcome/status move: ' + escapeHtml(pinnedContactReason) + ' <button onclick="clearPinnedContact()">Clear pinned row</button>' : '') + '</span>';
+  if (resultsInfo) resultsInfo.innerHTML = '<strong>Showing ' + visibleData.length + ' of ' + filteredData.length + '</strong>' + (hiddenCount > 0 ? ' <button class="load-more-button" onclick="loadMoreRows()">Load next ' + Math.min(RENDER_STEP, hiddenCount) + '</button>' : '') + ' <span class="help-text">' + escapeHtml(donorLoadNote) + ' ' + escapeHtml(callLogNote) + ' Sort: ' + escapeHtml(currentSortMode) + '. Section: ' + escapeHtml(currentSectionMode) + '. Cold scope: ' + escapeHtml(getColdListModeLabel()) + '. Row edit opens/closes without rebuilding or re-sorting the table. Only a real outcome/status move can reposition the row.' + (shouldHideFinishedCampaignsInCurrentView() ? ' Finished campaigns hidden from this active all-campaign working list.' : '') + (pinnedContactId ? ' Green row pinned after outcome/status move: ' + escapeHtml(pinnedContactReason) + ' <button onclick="clearPinnedContact()">Clear pinned row</button>' : '') + '</span>';
   donorTable.innerHTML = visibleData.map(donor => {
     const statusClass = donor.status ? String(donor.status).toLowerCase().replaceAll(' ', '-') : '';
     const rowClass = (currentCallingId === donor.id ? ' currently-calling' : '') + (Number(pinnedContactId) === Number(donor.id) ? ' recently-touched' : '') + (isGkcActiveHold(donor) ? ' gkc-hold-row' : (isGkcCampaign(donor) && isGkcCallVerified(donor) ? ' gkc-verified-row' : ''));
@@ -2388,68 +2559,44 @@ function buildInlineEditRowHtml(donor) {
   html += '</div></div></td></tr>';
   return html;
 }
+function removeInlineEditRowFromDom(id) {
+  const row = document.getElementById('inline-row-' + id);
+  if (row) row.remove();
+}
 function toggleInlineEdit(id) {
   const numericId = Number(id);
-
-  if (Number(expandedRowEditId) === numericId) {
-    const rowBeforeClose = document.getElementById('row-' + numericId);
-    const oldTop = rowBeforeClose ? rowBeforeClose.getBoundingClientRect().top : null;
-
-    expandedRowEditId = null;
-    expandedRowAnchorIndex = null;
-    renderDonors();
-
-    if (oldTop !== null) {
-      requestAnimationFrame(() => {
-        const rowAfterClose = document.getElementById('row-' + numericId);
-        if (!rowAfterClose) return;
-        const newTop = rowAfterClose.getBoundingClientRect().top;
-        window.scrollBy(0, newTop - oldTop);
-      });
-    }
+  const donor = allDonors.find(item => Number(item.id) === numericId);
+  const mainRow = document.getElementById('row-' + numericId);
+  if (!donor || !mainRow) {
+    alert('Contact row not found in the current visible list.');
     return;
   }
 
-  // Capture the exact list index and viewport position before the edit panel opens.
+  // Clicking the same row again simply closes the panel. No table rebuild.
+  if (Number(expandedRowEditId) === numericId) {
+    removeInlineEditRowFromDom(numericId);
+    expandedRowEditId = null;
+    expandedRowAnchorIndex = null;
+    return;
+  }
+
+  // Close any other row panel directly in the DOM. No sort/filter/render pass.
+  if (expandedRowEditId) removeInlineEditRowFromDom(expandedRowEditId);
+
+  expandedRowEditId = numericId;
   const beforeList = getFilteredDataRaw();
   const originalIndex = beforeList.findIndex(item => Number(item.id) === numericId);
   expandedRowAnchorIndex = originalIndex >= 0 ? originalIndex : 0;
 
-  const rowBeforeOpen = document.getElementById('row-' + numericId);
-  const oldTop = rowBeforeOpen ? rowBeforeOpen.getBoundingClientRect().top : null;
-
-  expandedRowEditId = numericId;
-  showDashboard();
-  renderDonors();
-
-  // Keep the clicked contact at the same place on screen.
-  // Do not scroll to the edit panel: a tall panel can drag the page to the bottom.
-  if (oldTop !== null) {
-    requestAnimationFrame(() => {
-      const rowAfterOpen = document.getElementById('row-' + numericId);
-      if (!rowAfterOpen) return;
-      const newTop = rowAfterOpen.getBoundingClientRect().top;
-      window.scrollBy(0, newTop - oldTop);
-    });
-  }
+  // Insert the edit row immediately below the clicked contact.
+  // This is true edit-in-place: opening the editor cannot re-sort or scroll the list.
+  mainRow.insertAdjacentHTML('afterend', buildInlineEditRowHtml(donor));
 }
 function cancelInlineEdit() {
   const numericId = Number(expandedRowEditId);
-  const rowBeforeClose = numericId ? document.getElementById('row-' + numericId) : null;
-  const oldTop = rowBeforeClose ? rowBeforeClose.getBoundingClientRect().top : null;
-
+  if (numericId) removeInlineEditRowFromDom(numericId);
   expandedRowEditId = null;
   expandedRowAnchorIndex = null;
-  renderDonors();
-
-  if (numericId && oldTop !== null) {
-    requestAnimationFrame(() => {
-      const rowAfterClose = document.getElementById('row-' + numericId);
-      if (!rowAfterClose) return;
-      const newTop = rowAfterClose.getBoundingClientRect().top;
-      window.scrollBy(0, newTop - oldTop);
-    });
-  }
 }
 async function saveInlineContactChanges(id) {
   const donor = allDonors.find(item => Number(item.id) === Number(id)) || {};
@@ -2506,8 +2653,9 @@ async function saveInlineContactChanges(id) {
   const { error } = await client.from('donors').update(updateData).eq('id', id);
   if (error) { console.error('Inline save failed:', error); alert('Failed to save row changes: ' + error.message); return; }
   updateLocalDonor(id, updateData);
-  showWarning('Row changes saved. It stays in the current list position until you record an outcome.');
-  renderDonors();
+  showWarning('Row changes saved. The row stays exactly where it is until you record an outcome/status move.');
+  renderBonusStrip();
+  updateTopButtonCounts();
 }
 async function deleteContactFromRow(id) {
   const donor = allDonors.find(item => Number(item.id) === Number(id));
@@ -2611,7 +2759,7 @@ async function saveContactChanges() {
   if (isClosedSale(existingDonor)) { const editAmount = parseMoneyNumber(document.getElementById('edit_amount').value); addOptionalSaleAmountFields(updateData, existingDonor, editAmount); }
   const { error } = await client.from('donors').update(updateData).eq('id', id);
   if (error) { console.error('Save contact failed:', error); alert('Failed to save contact changes: ' + error.message); }
-  else { const saved = updateLocalDonor(id, updateData); if (saved) fillEditForm(saved); showWarning('Contact updated. It stays in the current list position until you record an outcome.'); renderDonors(); }
+  else { const saved = updateLocalDonor(id, updateData); if (saved) fillEditForm(saved); showWarning('Contact updated. The list stays fixed until you record an outcome/status move.'); renderBonusStrip(); updateTopButtonCounts(); }
 }
 async function deleteLoadedContact() { const id = document.getElementById('edit_id').value; const cardId = document.getElementById('edit_card_id').value; const businessName = document.getElementById('edit_business_name').value; if (!id || !cardId) { alert('Load a contact first before deleting. A card ID is required.'); return; } if (!confirm('Delete contact ' + cardId + ' — ' + businessName + '?\n\nUse this when the PCL ID does not exist, or the ID belongs to the wrong business.\n\nThis cannot be undone.')) return; if (!confirm('Final check: permanently delete this contact from donors?')) return; const { error } = await client.from('donors').delete().eq('card_id', cardId); if (error) { console.error('Delete contact failed:', error); alert('Delete failed: ' + error.message); } else { alert('Contact deleted'); clearEditForm(); await loadDonors(); } }
 async function addDonor() {
