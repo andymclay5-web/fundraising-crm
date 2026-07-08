@@ -479,7 +479,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.7.24 cold prospecting scope + outcome-safe follow-up</h1>
+<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.7.25 strict history totals + deterministic history sort + sale number visibility</h1>
 <div id="errorBox"></div>
 <div id="warnBox"></div>
 
@@ -1357,15 +1357,7 @@ function buildCompactCampaignSummaryCard(data) {
 }
 
 function getVisibleHistoryValue(donor) {
-  const explicit = [donor.max_visible_history_value, donor.last_year_taps_value, donor.last_gkc_value];
-  for (const value of explicit) {
-    const n = parseMoneyNumber(value);
-    if (n > 0) return n;
-  }
-  const amounts = String(donor.sales_history || '').match(/\$[\s]*[0-9]{2,5}/g) || [];
-  let max = 0;
-  amounts.forEach(value => { max = Math.max(max, parseMoneyNumber(value)); });
-  return max;
+  return getHistoryReferenceValue(donor);
 }
 function getWorkingAskAmount(donor) {
   const saved = parseMoneyNumber(donor.suggested_ask);
@@ -2112,9 +2104,67 @@ function applyExpandedEditContact(data) {
 function updateLocalDonor(id, updates) { const donor = allDonors.find(item => Number(item.id) === Number(id)); if (donor) Object.assign(donor, updates); buildDuplicateLookup(); return donor; }
 
 function getCombinedText(donor) { return [donor.business_name, donor.contact_name, donor.sale_contact_name, donor.email, donor.location, donor.notes, donor.phone_notes, donor.sales_history, donor.check_details_reason, donor.local_school_angle, donor.history_group, donor.contactability_status, donor.research_strength, donor.business_category, donor.priority_group, donor.source_photo, donor.verification_status, donor.call_block_reason, donor.phone_qa_status, donor.source_card_qa_status, donor.local_angle_qa_status, donor.cold_card, donor.cold_bonus_eligible].join(' ').toLowerCase(); }
-function getHistoryYears(donor) { const text = [donor.sales_history, donor.notes, donor.phone_notes, donor.history_group, donor.last_any_sale_year, donor.last_autism_sale_year].join(' '); const years = text.match(/\b(19|20)\d{2}\b/g) || []; return years.map(Number).filter(y => y >= 1990 && y <= 2030); }
-function getHistoryLatestYear(donor) { const years = getHistoryYears(donor); return years.length ? Math.max(...years) : 0; }
-function getHistoryMaxAmount(donor) { const amounts = extractMoneyAmounts([donor.sales_history, donor.notes, donor.phone_notes].join(' ')); return amounts.length ? Math.max(...amounts) : 0; }
+function getHistoryYears(donor) {
+  const years = [];
+  [donor.last_any_sale_year, donor.last_autism_sale_year].forEach(value => {
+    const n = Number(value || 0);
+    if (n >= 1990 && n <= 2030) years.push(n);
+  });
+
+  const history = String(donor.sales_history || '');
+
+  // Compact campaign codes, e.g. G2507, H2607, 1A2407.
+  const compactRe = /(?:^|[;\s])(?:1A|[A-Z])(\d{2})07(?=\s*\$)/gi;
+  let match;
+  while ((match = compactRe.exec(history)) !== null) {
+    const year = 2000 + Number(match[1]);
+    if (year >= 1990 && year <= 2030) years.push(year);
+  }
+
+  // Full years if a legacy row contains them.
+  const fullYears = history.match(/\b(19|20)\d{2}\b/g) || [];
+  fullYears.map(Number).filter(y => y >= 1990 && y <= 2030).forEach(y => years.push(y));
+
+  return years;
+}
+function getHistoryLatestYear(donor) {
+  const years = getHistoryYears(donor);
+  return years.length ? Math.max(...years) : 0;
+}
+function getSalesHistoryMaxAmount(donor) {
+  const amounts = extractMoneyAmounts(String(donor.sales_history || ''));
+  return amounts.length ? Math.max(...amounts) : 0;
+}
+function getHistoryReferenceValue(donor) {
+  const group = String(donor.history_group || '').trim().toLowerCase();
+
+  // Use the correct reference for each explicit history category.
+  if (group === 'taps') {
+    const taps = parseMoneyNumber(donor.last_year_taps_value);
+    if (taps > 0) return taps;
+  }
+  if (group === 'recent taps') {
+    const gkc = parseMoneyNumber(donor.last_gkc_value);
+    if (gkc > 0) return gkc;
+  }
+
+  const maxVisible = parseMoneyNumber(donor.max_visible_history_value);
+  if (maxVisible > 0) return maxVisible;
+
+  if (group === 'taps') {
+    const tapsFallback = parseMoneyNumber(donor.last_year_taps_value);
+    if (tapsFallback > 0) return tapsFallback;
+  }
+  if (group === 'recent taps') {
+    const gkcFallback = parseMoneyNumber(donor.last_gkc_value);
+    if (gkcFallback > 0) return gkcFallback;
+  }
+
+  return getSalesHistoryMaxAmount(donor);
+}
+function getHistoryMaxAmount(donor) {
+  return getHistoryReferenceValue(donor);
+}
 function getContactabilityScore(donor) { let score = 0; if (String(donor.contact_name || '').trim()) score += 5; if (String(donor.sale_contact_name || '').trim()) score += 5; if (String(donor.mobile || '').trim()) score += 4; if (String(donor.office_phone || '').trim()) score += 3; if (String(donor.email || '').trim()) score += 2; const c = String(donor.contactability_status || '').toLowerCase(); if (c.includes('contact') || c.includes('direct') || c.includes('public')) score += 4; return score; }
 function getResearchStrengthScore(donor) { const explicit = String(donor.research_strength || '').toLowerCase(); let score = Number(donor.priority_score || 0); const text = getCombinedText(donor); if (explicit.includes('strong')) score += 10; if (explicit.includes('medium')) score += 5; ['public','source','website','director','owner','manager','branch','capacity','large','group','construction','engineering','property','manufacturing','transport','logistics','school'].forEach(word => { if (text.includes(word)) score += 1; }); score += Math.min(8, Math.round(getAskAmount(donor) / 100)); score += Math.min(8, getContactabilityScore(donor)); return score; }
 function hasLocalSchoolAngle(donor) { return String(donor.local_school_angle || '').trim() !== '' || getCombinedText(donor).includes('school'); }
@@ -2156,39 +2206,40 @@ function historyTextHas(donor, terms) {
     .replace(/\s+/g, ' ');
   return terms.some(term => text.includes(String(term).toLowerCase().replace(/[–—_/]+/g, ' ').replace(/\s+/g, ' ').trim()));
 }
+function getExplicitHistoryGroup(donor) {
+  return String(donor.history_group || '')
+    .toLowerCase()
+    .replace(/[–—_/]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function hasKnownExplicitHistoryGroup(donor) {
+  return ['taps','recent taps','comparative','recent comparative','21 22','pre 2020','cold','needs history check']
+    .includes(getExplicitHistoryGroup(donor));
+}
 function hasTapsLastYearGroup(donor) {
-  const latestYear = getHistoryLatestYear(donor);
-  const group = normalizeHistoryGroupText(donor);
-  if (group === 'taps' || group === 'tap') return true;
-  if (historyGroupHas(donor, ['taps last year', 'tap last year', 'this charity last year', 'same charity last year', 'last year same charity'])) return true;
-  if ((historyTextHas(donor, ['taps', 'same charity', 'this charity']) || group.includes('taps')) && latestYear >= 2025) return true;
+  const group = getExplicitHistoryGroup(donor);
+  if (group) return group === 'taps';
   return false;
 }
 function hasComparativeRecentGroup(donor) {
-  const latestYear = getHistoryLatestYear(donor);
-  const group = normalizeHistoryGroupText(donor);
-  if (group === 'comparative') return true;
-  if (historyGroupHas(donor, ['comparative last 12', 'other charity last 12', 'recent other charity', 'other charity recent'])) return true;
-  if (historyTextHas(donor, ['comparative', 'other charity', 'other charities']) && latestYear >= 2025 && !hasRecentComparativeGroup(donor)) return true;
+  const group = getExplicitHistoryGroup(donor);
+  if (group) return group === 'comparative';
   return false;
 }
 function hasRecentTapsGroup(donor) {
-  const latestYear = getHistoryLatestYear(donor);
-  if (hasTapsLastYearGroup(donor)) return true;
-  if (historyGroupHas(donor, ['recent taps', 'recent tap', 'taps 2023', 'taps 2024', 'tap 2023', 'tap 2024', 'same charity 2023', 'same charity 2024', 'this charity 2023', 'this charity 2024'])) return true;
-  if (historyTextHas(donor, ['taps', 'same charity', 'this charity']) && latestYear >= 2023) return true;
+  const group = getExplicitHistoryGroup(donor);
+  if (group) return group === 'recent taps';
   return false;
 }
 function hasRecentComparativeGroup(donor) {
-  const latestYear = getHistoryLatestYear(donor);
-  if (historyGroupHas(donor, ['recent comparative', 'recent comp', 'comparative 2023', 'comparative 2024', 'other charity 2023', 'other charity 2024', 'other charities 2023', 'other charities 2024'])) return true;
-  if (historyTextHas(donor, ['comparative', 'other charity', 'other charities']) && latestYear >= 2023 && latestYear <= 2024) return true;
+  const group = getExplicitHistoryGroup(donor);
+  if (group) return group === 'recent comparative';
   return false;
 }
 function has2122HistoryGroup(donor) {
-  const latestYear = getHistoryLatestYear(donor);
-  if (historyGroupHas(donor, ['21 22', '21-22', '2021 2022', '2021-2022', '2021/2022', '21/22'])) return true;
-  if (latestYear >= 2021 && latestYear <= 2022) return true;
+  const group = getExplicitHistoryGroup(donor);
+  if (group) return group === '21 22';
   return false;
 }
 function hasPre2020OrColdGroup(donor) {
@@ -2253,7 +2304,13 @@ function sortByDefaultForCurrentFilter(data) {
   if (currentFilter === 'closedSales') return data.sort((a,b) => { const saleA = Number(a.sale_number || 999999); const saleB = Number(b.sale_number || 999999); if (saleA !== saleB) return saleA - saleB; return String(a.sale_date || '').localeCompare(String(b.sale_date || '')); });
   return data.sort((a,b) => { const askCompare = getAskAmount(b) - getAskAmount(a); if (askCompare !== 0) return askCompare; return String(a.card_id || '').localeCompare(String(b.card_id || '')); });
 }
-function applySortMode(data) { const mode = currentSortMode || 'default'; if (mode === 'default') return sortByDefaultForCurrentFilter(data); if (mode === 'balancedDaily') return data.sort((a,b) => (getContactabilityScore(b) + getResearchStrengthScore(b) + Math.round(getAskAmount(b)/100) + (hasLocalSchoolAngle(b)?4:0)) - (getContactabilityScore(a) + getResearchStrengthScore(a) + Math.round(getAskAmount(a)/100) + (hasLocalSchoolAngle(a)?4:0))); if (mode === 'smartValue') return data.sort((a,b) => getAskAmount(b) - getAskAmount(a)); if (mode === 'lastCalledOldest') return data.sort(sortByOldestLastCallThenBusiness); if (mode === 'lastCalledNewest') return data.sort((a,b) => getCalledSortTime(b) - getCalledSortTime(a)); if (mode === 'firstCallOldest') return data.sort((a,b) => { const aCalls = getCallAttemptCount(a); const bCalls = getCallAttemptCount(b); if (aCalls !== bCalls) return aCalls - bCalls; return String(a.created_at || '').localeCompare(String(b.created_at || '')); }); if (mode === 'historyValue') return data.sort((a,b) => getHistoryMaxAmount(b) - getHistoryMaxAmount(a)); if (mode === 'historyRecency') return data.sort((a,b) => getHistoryLatestYear(b) - getHistoryLatestYear(a)); if (mode === 'researchStrength') return data.sort((a,b) => getResearchStrengthScore(b) - getResearchStrengthScore(a)); if (mode === 'contactability') return data.sort((a,b) => getContactabilityScore(b) - getContactabilityScore(a)); if (mode === 'businessName') return data.sort((a,b) => String(a.business_name || '').localeCompare(String(b.business_name || ''))); return sortByDefaultForCurrentFilter(data); }
+function applySortMode(data) { const mode = currentSortMode || 'default'; if (mode === 'default') return sortByDefaultForCurrentFilter(data); if (mode === 'balancedDaily') return data.sort((a,b) => (getContactabilityScore(b) + getResearchStrengthScore(b) + Math.round(getAskAmount(b)/100) + (hasLocalSchoolAngle(b)?4:0)) - (getContactabilityScore(a) + getResearchStrengthScore(a) + Math.round(getAskAmount(a)/100) + (hasLocalSchoolAngle(a)?4:0))); if (mode === 'smartValue') return data.sort((a,b) => getAskAmount(b) - getAskAmount(a)); if (mode === 'lastCalledOldest') return data.sort(sortByOldestLastCallThenBusiness); if (mode === 'lastCalledNewest') return data.sort((a,b) => getCalledSortTime(b) - getCalledSortTime(a)); if (mode === 'firstCallOldest') return data.sort((a,b) => { const aCalls = getCallAttemptCount(a); const bCalls = getCallAttemptCount(b); if (aCalls !== bCalls) return aCalls - bCalls; return String(a.created_at || '').localeCompare(String(b.created_at || '')); }); if (mode === 'historyValue') return data.sort((a,b) => {
+  const historyCompare = getHistoryReferenceValue(b) - getHistoryReferenceValue(a);
+  if (historyCompare !== 0) return historyCompare;
+  const askCompare = getWorkingAskAmount(b) - getWorkingAskAmount(a);
+  if (askCompare !== 0) return askCompare;
+  return String(a.business_name || '').localeCompare(String(b.business_name || ''));
+}); if (mode === 'historyRecency') return data.sort((a,b) => getHistoryLatestYear(b) - getHistoryLatestYear(a)); if (mode === 'researchStrength') return data.sort((a,b) => getResearchStrengthScore(b) - getResearchStrengthScore(a)); if (mode === 'contactability') return data.sort((a,b) => getContactabilityScore(b) - getContactabilityScore(a)); if (mode === 'businessName') return data.sort((a,b) => String(a.business_name || '').localeCompare(String(b.business_name || ''))); return sortByDefaultForCurrentFilter(data); }
 
 function getFilteredDataRaw() {
   let filteredData = Array.from(allDonors);
@@ -2467,6 +2524,11 @@ function renderDonors() {
     const askInfo = getRecommendedAskInfo(donor);
     const askInputValue = getAskInputValue(donor);
     const saleLockedBadge = isClosedSale(donor) ? '<span class="sale-locked-badge">sale amount locked</span>' : '';
+    const saleNumberAskBadge = isClosedSale(donor)
+      ? (donor.sale_number
+          ? '<span class="sale-locked-badge"><strong>Sale #' + escapeHtml(donor.sale_number) + '</strong></span>'
+          : '<span class="badge badge-red"><strong>Sale # missing</strong></span>')
+      : '';
     const pitch = usesTicketPitch(donor) ? '<span class="ask-reason"><strong>' + escapeHtml(getTicketPitchForAmount(askInputValue || askInfo.amount, donor)) + '</strong></span>' : '';
     return '<tr id="row-' + donor.id + '" class="' + statusClass + rowClass + '">' +
       '<td class="id-cell">' + escapeHtml(donor.card_id || '') + '</td>' +
@@ -2479,7 +2541,7 @@ function renderDonors() {
       '<td class="location-cell">' + escapeHtml(donor.location || '') + '</td>' +
       '<td class="last-called-cell">' + escapeHtml(getLastCalledDisplay(lastCallValue)) + '<br><span class="badge">' + getCallAttemptCount(donor) + ' calls</span></td>' +
       '<td><select onchange="updateStatus(' + donor.id + ', this.value)" class="status-select">' + getStatusOptions(donor.status || 'Not Called') + '</select>' + getAfterCallButtonsHtml(donor) + '</td>' +
-      '<td class="ask-cell"><span class="ask-label">' + (isClosedSale(donor) ? 'Sale $' : 'Ask') + '</span><input id="sale-amount-' + donor.id + '" type="number" value="' + escapeHtml(askInputValue || '') + '" oninput="cacheSaleAmount(' + donor.id + ', this.value)" onchange="updateSuggestedAsk(' + donor.id + ', this.value)" class="amount-input"><span class="' + (donor.suggested_ask || isClosedSale(donor) ? 'ask-saved' : 'ask-smart') + '">' + (donor.suggested_ask || isClosedSale(donor) ? 'saved' : 'smart') + '</span>' + saleLockedBadge + pitch + getGkcAskContextHtml(donor) + '<span class="ask-reason">' + escapeHtml(shortText(askInfo.reason, 160)) + '</span></td>' +
+      '<td class="ask-cell"><span class="ask-label">' + (isClosedSale(donor) ? 'Sale $' : 'Ask') + '</span><input id="sale-amount-' + donor.id + '" type="number" value="' + escapeHtml(askInputValue || '') + '" oninput="cacheSaleAmount(' + donor.id + ', this.value)" onchange="updateSuggestedAsk(' + donor.id + ', this.value)" class="amount-input"><span class="' + (donor.suggested_ask || isClosedSale(donor) ? 'ask-saved' : 'ask-smart') + '">' + (donor.suggested_ask || isClosedSale(donor) ? 'saved' : 'smart') + '</span>' + saleLockedBadge + saleNumberAskBadge + pitch + getGkcAskContextHtml(donor) + '<span class="ask-reason"><strong>History sort value ' + formatMoney(getHistoryReferenceValue(donor)) + '</strong></span>' + '<span class="ask-reason">' + escapeHtml(shortText(askInfo.reason, 160)) + '</span></td>' +
       '<td class="pcl-cell"><input type="checkbox" ' + (donor.pcl_entered ? 'checked' : '') + ' onchange="updatePclEntered(' + donor.id + ', this.checked)"><br>' + enteredText + enteredButton + '</td>' +
       '<td class="sales-history-cell">' + buildEnhancedSalesHistoryHtml(donor) + '</td>' +
       '<td class="notes-cell">' + buildNotesRecoveryHtml(donor) + '<br><button class="inline-note-trigger" onclick="loadThisContact(' + donor.id + ')">Row notes / edit</button></td>' +
