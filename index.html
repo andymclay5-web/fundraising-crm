@@ -479,7 +479,7 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
 </style>
 </head>
 <body>
-<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.7.23 G2607 history scope + motivation totals + true edit in place</h1>
+<h1>Fundraising CRM Dashboard LIVE - CONSOLIDATED v18.7.24 cold prospecting scope + outcome-safe follow-up</h1>
 <div id="errorBox"></div>
 <div id="warnBox"></div>
 
@@ -581,9 +581,9 @@ input, textarea, select { font-family: Arial, sans-serif; font-size: 12px; }
   </label>
   <label>Cold cards in working lists
     <select id="coldListMode" onchange="setColdListMode(this.value)">
-      <option value="exclude" selected>Exclude Cold / Pre-2020</option>
-      <option value="include">Include cold + history</option>
-      <option value="only">Cold / Pre-2020 only</option>
+      <option value="exclude" selected>History focus — exclude cold from prospecting lists</option>
+      <option value="include">Include cold + history in prospecting lists</option>
+      <option value="only">Cold / Pre-2020 prospecting only</option>
     </select>
   </label>
   <label>View section
@@ -1671,12 +1671,15 @@ function setCampaignFilter(value) {
 function setSortMode(value) { currentSortMode = value || 'default'; resetRenderLimit(); showDashboard(); renderDonors(); }
 function setSectionMode(value) { currentSectionMode = value || 'all'; resetRenderLimit(); showDashboard(); renderDonors(); }
 function getColdListModeLabel() {
-  if (currentColdListMode === 'include') return 'Include cold + history';
-  if (currentColdListMode === 'only') return 'Cold / Pre-2020 only';
-  return 'History priority — cold excluded';
+  if (currentColdListMode === 'include') return 'Include cold + history in prospecting';
+  if (currentColdListMode === 'only') return 'Cold / Pre-2020 prospecting only';
+  return 'History focus — cold excluded from prospecting';
 }
 function coldModeAppliesToFilter(filterName) {
-  return ['callQueue','gkcVerified','callbacks','willCallMe','noCards','noAnswer','noAnswerUnblocked','alreadyCalled'].includes(filterName);
+  // Cold scope is a prospecting/list-focus control, not an outcome blocker.
+  // Once a cold card is worked, it must still flow into No Answer, Callback,
+  // Will Call Me, Email Follow Up, Check Details/Number and Closed Sales.
+  return ['callQueue','gkcVerified','noCards','alreadyCalled'].includes(filterName);
 }
 function applyColdListMode(data, filterName) {
   const rows = Array.from(data || []);
@@ -1888,7 +1891,7 @@ function applyListFilterForCount(data, filterName) {
   let filteredData = Array.from(data || []);
   if (filterName === 'callQueue') filteredData = filteredData.filter(donor => isCallQueueContact(donor));
   else if (filterName === 'gkcVerified') filteredData = filteredData.filter(donor => isGkcCampaign(donor) && isCallQueueContact(donor));
-  else if (filterName === 'coldCards') filteredData = filteredData.filter(donor => isColdBonusEligible(donor));
+  else if (filterName === 'coldCards') filteredData = filteredData.filter(donor => isColdBonusEligible(donor) && isCallQueueContact(donor));
   else if (filterName === 'putAside') filteredData = filteredData.filter(donor => isPutAside(donor));
   else if (filterName === 'noCards') filteredData = filteredData.filter(donor => isNoStatus(donor));
   else if (filterName === 'duplicateRisk') filteredData = filteredData.filter(donor => hasDuplicateRisk(donor));
@@ -2260,7 +2263,7 @@ function getFilteredDataRaw() {
   filteredData = applyFinishedCampaignVisibility(filteredData);
   if (currentFilter === 'callQueue') filteredData = filteredData.filter(donor => isCallQueueContact(donor));
   else if (currentFilter === 'gkcVerified') filteredData = filteredData.filter(donor => isGkcCampaign(donor) && isCallQueueContact(donor));
-  else if (currentFilter === 'coldCards') filteredData = filteredData.filter(donor => isColdBonusEligible(donor));
+  else if (currentFilter === 'coldCards') filteredData = filteredData.filter(donor => isColdBonusEligible(donor) && isCallQueueContact(donor));
   else if (currentFilter === 'putAside') filteredData = filteredData.filter(donor => isPutAside(donor));
   else if (currentFilter === 'noCards') filteredData = filteredData.filter(donor => isNoStatus(donor));
   else if (currentFilter === 'duplicateRisk') filteredData = filteredData.filter(donor => hasDuplicateRisk(donor));
