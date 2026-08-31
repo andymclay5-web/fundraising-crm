@@ -1,0 +1,346 @@
+/* Fundraising CRM phone layout v18.7.29-mobile
+   Phone-only presentation layer. Desktop index.html is unchanged. */
+@media (max-width: 760px) {
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    padding: 6px !important;
+    margin: 0;
+    background: #f2f4f7;
+    overflow-x: hidden;
+  }
+
+  h1 {
+    font-size: 17px !important;
+    line-height: 1.15;
+    margin: 4px 0 6px !important;
+  }
+
+  .help-text { display: none !important; }
+
+  #campaignArea {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 5px 7px;
+    align-items: center;
+    margin-bottom: 6px !important;
+    font-size: 12px;
+  }
+  #campaignArea > strong { white-space: nowrap; }
+  #campaignFilter {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0;
+    height: 36px;
+  }
+  #campaignArea .past-campaigns-panel,
+  #campaignArea > .panel-button {
+    display: none !important;
+  }
+  body.mobile-tools-open #campaignArea .past-campaigns-panel,
+  body.mobile-tools-open #campaignArea > .panel-button {
+    display: block !important;
+    grid-column: 1 / -1;
+    margin: 2px 0 !important;
+  }
+  body.mobile-tools-open #campaignArea .past-campaigns-panel select { max-width: 65vw; }
+
+  #bonusStrip,
+  #motivationStrip {
+    display: flex !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 6px !important;
+    margin: 5px 0 !important;
+    padding: 0 0 4px !important;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+  #bonusStrip > *,
+  #motivationStrip > * {
+    flex: 0 0 185px !important;
+    min-width: 185px !important;
+    max-width: 185px !important;
+    min-height: 0 !important;
+    padding: 6px !important;
+    scroll-snap-align: start;
+  }
+  #bonusStrip .bonus-main { font-size: 14px !important; }
+  #bonusStrip .bonus-small,
+  #bonusStrip .commission-split { font-size: 9px !important; }
+  .motivation-head { display: contents !important; }
+  .history-category-row { flex-wrap: nowrap !important; }
+
+  #topButtons,
+  #listControlArea { display: none !important; }
+  body.mobile-tools-open #topButtons,
+  body.mobile-tools-open #listControlArea { display: block !important; }
+  body.mobile-tools-open #topButtons {
+    white-space: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  body.mobile-tools-open #topButtons button {
+    display: inline-block;
+    min-height: 36px;
+    margin: 2px 1px;
+  }
+  body.mobile-tools-open #listControlArea label {
+    display: block;
+    margin: 5px 0;
+  }
+  body.mobile-tools-open #listControlArea select,
+  body.mobile-tools-open #listControlArea input {
+    width: 100% !important;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-height: 36px;
+    margin: 2px 0 !important;
+  }
+
+  #searchArea {
+    display: flex;
+    gap: 4px;
+    margin: 5px 0 !important;
+  }
+  #searchBox {
+    width: 100% !important;
+    min-width: 0;
+    box-sizing: border-box;
+    height: 38px;
+    font-size: 14px;
+  }
+  #searchArea button { min-width: 72px; min-height: 38px; }
+
+  #resultsInfo {
+    margin: 5px 0 7px !important;
+    padding: 6px !important;
+    font-size: 10px !important;
+    line-height: 1.25;
+  }
+
+  #crmTable,
+  #crmTable tbody {
+    display: block !important;
+    width: 100% !important;
+    background: transparent !important;
+  }
+  #crmTable thead { display: none !important; }
+
+  #donorTable > tr:not(.inline-edit-row) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    width: 100% !important;
+    margin: 0 0 8px !important;
+    border: 1px solid #c9d1d9;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0,0,0,.06);
+  }
+  #donorTable > tr:not(.inline-edit-row) > td {
+    display: none !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    border: 0 !important;
+    padding: 6px 7px !important;
+    box-sizing: border-box;
+    font-size: 12px !important;
+    overflow-wrap: anywhere;
+  }
+
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(3) {
+    display: block !important;
+    grid-column: 1 / -1;
+    font-size: 15px !important;
+    font-weight: 700;
+    line-height: 1.2;
+    background: #eef5fb;
+    border-bottom: 1px solid #d7e3ef !important;
+  }
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(4) {
+    display: block !important;
+    grid-column: 1 / -1;
+    font-size: 13px !important;
+    padding-bottom: 3px !important;
+  }
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(4)::before {
+    content: "Contact  ";
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: #667;
+    font-weight: 700;
+  }
+
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(5),
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(6) {
+    display: block !important;
+    grid-column: auto;
+    background: #f8fafc;
+  }
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(5)::before { content: "Mobile"; }
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(6)::before { content: "Main"; }
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(5)::before,
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(6)::before,
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(7)::before {
+    display: block;
+    margin-bottom: 2px;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: #667;
+    font-weight: 700;
+  }
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(5) button,
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(6) button {
+    display: block;
+    width: 100%;
+    min-height: 38px;
+    margin: 3px 0 0 !important;
+    font-size: 13px !important;
+    font-weight: 700;
+  }
+
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(7) {
+    display: block !important;
+    grid-column: 1 / -1;
+    font-size: 11px !important;
+    border-top: 1px solid #eef1f4 !important;
+  }
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(7)::before { content: "Email"; }
+
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(11) {
+    display: block !important;
+    grid-column: 1 / -1;
+    background: #fff9e8;
+    border-top: 1px solid #f0dfad !important;
+    border-bottom: 1px solid #f0dfad !important;
+  }
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(11) .ask-label {
+    display: inline-block !important;
+    margin-right: 5px;
+  }
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(11) .ask-reason,
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(11) .ask-context {
+    font-size: 10px !important;
+    line-height: 1.25;
+  }
+
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(10) {
+    display: block !important;
+    grid-column: 1 / -1;
+    padding-top: 7px !important;
+  }
+  #donorTable .status-select {
+    width: 100% !important;
+    min-height: 38px;
+    font-size: 13px !important;
+  }
+  #donorTable .outcome-buttons {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    margin-top: 5px !important;
+    padding-top: 5px !important;
+  }
+  #donorTable .outcome-buttons button {
+    min-height: 38px;
+    margin: 0 !important;
+    padding: 5px 3px !important;
+    font-size: 11px !important;
+  }
+
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(16) {
+    display: block !important;
+    grid-column: 1 / -1;
+    border-top: 1px solid #eef1f4 !important;
+  }
+  #donorTable > tr:not(.inline-edit-row) > td:nth-child(16) button {
+    width: 100%;
+    min-height: 36px;
+    margin: 0 !important;
+  }
+
+  #donorTable > tr.currently-calling,
+  #donorTable > tr.recently-touched { outline-offset: 0 !important; }
+
+  #donorTable > tr.inline-edit-row {
+    display: block !important;
+    width: 100% !important;
+    margin: -5px 0 10px !important;
+  }
+  #donorTable > tr.inline-edit-row > td {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    padding: 5px !important;
+  }
+  .inline-edit-grid,
+  .inline-details-inner,
+  #editContactBox.compact-edit,
+  .edit-details-grid,
+  .form-grid,
+  .campaign-settings-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .inline-span-2,
+  .inline-span-4,
+  .inline-details,
+  .inline-actions,
+  #editContactBox.compact-edit .form-panel-header,
+  #editContactBox.compact-edit .edit-wide,
+  #editContactBox.compact-edit .edit-actions,
+  #editContactBox.compact-edit .compact-section-label {
+    grid-column: 1 / -1 !important;
+  }
+  .inline-edit-panel input,
+  .inline-edit-panel select,
+  .inline-edit-panel textarea,
+  #editContactBox input,
+  #editContactBox select,
+  #editContactBox textarea {
+    font-size: 16px !important;
+  }
+
+  #reportBox { padding: 8px !important; margin: 7px 0 !important; overflow-x: auto; }
+
+  #mobileQuickBar {
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 3px;
+    margin: 0 -2px 6px;
+    padding: 4px;
+    background: rgba(244,246,248,.97);
+    border: 1px solid #c9d1d9;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    backdrop-filter: blur(5px);
+  }
+  #mobileQuickBar button {
+    min-width: 0;
+    min-height: 38px;
+    margin: 0 !important;
+    padding: 4px 2px !important;
+    font-size: 10px !important;
+    line-height: 1.1;
+    font-weight: 700;
+  }
+  #mobileQuickBar button.mobile-active {
+    outline: 2px solid #ff9800;
+    background: #fff8e1;
+  }
+  #mobileListTitle {
+    grid-column: 1 / -1;
+    font-size: 10px;
+    color: #445;
+    padding: 0 2px 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
