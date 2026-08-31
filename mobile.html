@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fundraising CRM Mobile</title>
+<style>body{font-family:Arial,sans-serif;padding:16px;background:#f4f4f4;color:#222}#msg{background:#fff;border:1px solid #ccc;padding:14px;border-radius:8px}</style>
+</head>
+<body>
+<div id="msg"><strong>Loading Fundraising CRM mobile view…</strong></div>
+<script>
+(async function(){
+  try {
+    const response = await fetch('./index.html?v=18728', {cache:'no-store'});
+    if (!response.ok) throw new Error('Dashboard loader HTTP ' + response.status);
+    let loader = await response.text();
+    const needle = 'document.open();\n    document.write(html);\n    document.close();';
+    const replacement = "html = html.replace('</head>', '<link rel=\"stylesheet\" href=\"./mobile.css?v=18729\"></head>');\n    html = html.replace('</body>', '<script src=\"./mobile.js?v=18729\"><\\/script></body>');\n    document.open();\n    document.write(html);\n    document.close();";
+    if (!loader.includes(needle)) throw new Error('Mobile wrapper could not find the dashboard write step. Desktop dashboard is untouched.');
+    loader = loader.replace(needle, replacement);
+    document.open();
+    document.write(loader);
+    document.close();
+  } catch (error) {
+    document.getElementById('msg').innerHTML = '<strong>Mobile dashboard load stopped safely.</strong><br>' + String(error && error.message ? error.message : error) + '<br><br>The normal desktop dashboard has not been changed.';
+  }
+})();
+</script>
+</body>
+</html>
